@@ -1,0 +1,548 @@
+
+
+```{r}
+library(PLNmodels)
+library(caret)
+library(ggplot2)
+library(reshape2)
+library(MASS)
+
+#set.seed(43)
+
+# Generate synthetic data with larger sample size
+n_samples <- 200  
+n_species <- 10   
+n_covars <- 4     
+
+# Generate environmental covariates (similar ranges to trichoptera)
+Temperature <- rnorm(n_samples, mean = 20, sd = 3)
+Wind <- rnorm(n_samples, mean = -2, sd = 2)
+Pressure <- rnorm(n_samples, mean = 995, sd = 5)
+Humidity <- rnorm(n_samples, mean = 70, sd = 10)
+
+# Standardize covariates to prevent overflow
+Temperature <- scale(Temperature)[,1]
+Wind <- scale(Wind)[,1]
+Pressure <- scale(Pressure)[,1]
+Humidity <- scale(Humidity)[,1]
+
+# Create covariate matrix
+X <- cbind(1, Temperature, Wind, Pressure, Humidity)
+
+# True regression coefficients (MUCH smaller to prevent overflow)
+B_true <- matrix(rnorm((n_covars + 1) * n_species, 0, 0.1), 
+                 nrow = n_covars + 1, ncol = n_species)
+B_true[1, ] <- rnorm(n_species, 0, 0.3)  # Small intercepts
+
+# True covariance for species interactions (smaller)
+Sigma_true <- diag(n_species) * 0.1
+# Add some sparse correlations
+for(i in 1:(n_species-1)) {
+  if(runif(1) < 0.3) {
+    Sigma_true[i, i+1] <- Sigma_true[i+1, i] <- 0.05
+  }
+}
+
+# Generate latent variables and counts with bounds
+eta <- X %*% B_true  
+Z <- mvrnorm(n_samples, rep(0, n_species), Sigma_true)
+log_mu <- eta + Z
+
+# Bound log_mu to prevent overflow
+log_mu <- pmax(pmin(log_mu, 5), -5)  # Keep between exp(-5) and exp(5)
+
+# Generate count data
+Abundance <- matrix(rpois(n_samples * n_species, lambda = exp(log_mu)), 
+                   nrow = n_samples, ncol = n_species)
+
+# Create data frame in correct PLNmodels format
+colnames(Abundance) <- paste0("Species_", 1:n_species)
+
+# Create individual data frames first
+abundance_df <- data.frame(Abundance)
+covariate_df <- data.frame(
+  Temperature = Temperature,
+  Wind = Wind, 
+  Pressure = Pressure,
+  Humidity = Humidity
+)
+
+# Use prepare_data to get proper format
+synthetic_data <- prepare_data(Abundance, covariate_df)
+```
+
+```{r}
+library(PLNmodels)
+library(caret)
+library(ggplot2)
+library(reshape2)
+
+#set.seed(43)
+data(trichoptera)
+trichoptera <- prepare_data(trichoptera$Abundance, trichoptera$Covariate)
+str(trichoptera)
+
+trichoptera <- synthetic_data
+
+# Filtering function
+ofilter_sparse_species <- function(abundance_data, min_mean = 0.5, min_prevalence = 0.5) {
+    species_means <- colMeans(abundance_data)
+    species_prevalence <- colMeans(abundance_data > 0)
+    
+    keep_species <- (species_means >= min_mean) & (species_prevalence >= min_prevalence)
+    
+    cat("Removing", sum(!keep_species), "sparse species:\n")
+    cat(names(abundance_data)[!keep_species], "\n")
+    cat("Keeping", sum(keep_species), "species for analysis\n")
+    
+    return(abundance_data[, keep_species])
+}
+
+# Filtering function with log transformation
+filter_sparse_species <- function(abundance_data, min_mean = 0.5, min_prevalence = 0.5, transform = T, transform_method = "log1p") {
+    species_means <- colMeans(abundance_data)
+    species_prevalence <- colMeans(abundance_data > 0)
+    
+    keep_species <- (species_means >= min_mean) & (species_prevalence >= min_prevalence)
+    
+    cat("Removing", sum(!keep_species), "sparse species:\n")
+    cat(names(abundance_data)[!keep_species], "\n")
+    cat("Keeping", sum(keep_species), "species for analysis\n")
+    
+    # Filter species
+    #filtered_data <- abundance_data[, keep_species]
+    filtered_data <- abundance_data
+    
+    # Transform features if requested
+    if(transform) {
+        cat("Applying", transform_method, "transformation:\n")
+        # Apply log(x+1) transformation
+        for(sp in colnames(filtered_data)) {
+                original_range <- range(filtered_data[, sp])
+                filtered_data[, sp] <- log1p(filtered_data[, sp])  # log(x+1)
+                new_range <- range(filtered_data[, sp])
+                cat("  ", sp, ": range [", original_range[1], ",", original_range[2], 
+                    "] -> [", round(new_range[1],2), ",", round(new_range[2],2), "]\n")
+        }
+    }
+    
+    return(filtered_data)
+}
+
+# Apply filtering
+cat("=== BEFORE FILTERING ===\n")
+table(trichoptera$Abundance == 0)  # Check sparsity
+colSums(trichoptera$Abundance)     # Species abundance distribution  
+summary(trichoptera[,2:6])         # Covariate ranges
+
+cat("\n=== APPLYING FILTER ===\n")
+trichoptera$Abundance <- filter_sparse_species(trichoptera$Abundance)
+
+cat("\n=== REMOVING DOMINANT SPECIES (Psy) ===\n")
+cat("Before removing Psy - species distribution:\n")
+print(colSums(trichoptera$Abundance))
+#trichoptera$Abundance <- trichoptera$Abundance[, !colnames(trichoptera$Abundance) %in% "Psy"]
+cat("After removing Psy - species distribution:\n")
+print(colSums(trichoptera$Abundance))
+
+cat("\n=== AFTER FILTERING AND REMOVING Psy ===\n")
+# Quick diagnostics
+table(trichoptera$Abundance == 0)  # Check sparsity
+colSums(trichoptera$Abundance)     # Species abundance distribution  
+summary(trichoptera[,2:6])         # Covariate ranges
+
+my_k <- 5
+lambda_range <- 10^seq(-6, 0, length.out = 10)
+folds <- createFolds(1:nrow(trichoptera), k = my_k, list = TRUE)
+results <- list()
+for(k in 1:my_k) {
+  val_idx <- folds[[k]]
+  subtrain_idx <- setdiff(1:nrow(trichoptera), val_idx)
+  
+  subtrain_data <- trichoptera[subtrain_idx, ]
+  validation_data <- trichoptera[val_idx, ]
+  
+  ## ---------- 1. Compute Adaptive-Lasso weights ----------
+  p <- ncol(trichoptera$Abundance)
+  
+  # Fit initial PLN model with very small lambda to get precision matrix
+  initial_lambda <- min(lambda_range) / 10  # Even smaller than minimum in range
+  initial_pln <- PLNnetwork(Abundance ~ Temperature + Wind + Pressure + Humidity, 
+                           data = subtrain_data,
+                           penalties = initial_lambda,
+                           control = PLNnetwork_param(trace = 0))
+  
+  # Extract precision matrix and compute adaptive weights
+  initial_precision <- initial_pln$models[[1]]$model_par$Omega
+  
+  # Compute adaptive weights: smaller penalties for larger initial estimates
+  W <- 1 / (abs(initial_precision) + 1e-6)  # Add small constant to avoid division by zero
+  
+  # Set diagonal to 1 (as requested)
+  diag(W) <- 1
+  
+  # Ensure symmetry
+  W <- (W + t(W)) / 2
+  
+  pln_family <- PLNnetwork(Abundance ~ Temperature + Wind + Pressure + Humidity, 
+                          data = subtrain_data,
+                          penalties = lambda_range,
+                          control = PLNnetwork_param(trace = 0, penalty_weights = W))
+  
+  # Rest of the code remains the same...
+  lambdas <- sapply(pln_family$models, function(m) m$penalty)
+  
+  subtrain_devs <- sapply(pln_family$models, function(m) {
+    mu_pred <- predict(m, newdata = subtrain_data, type = "response")
+    Y_subtrain <- subtrain_data$Abundance
+    mu_pred <- pmax(mu_pred, 1e-8)
+    dev_terms <- ifelse(Y_subtrain == 0, 2 * mu_pred, 
+                       2 * (Y_subtrain * log(Y_subtrain / mu_pred) - (Y_subtrain - mu_pred)))
+    mean(dev_terms[is.finite(dev_terms)])
+  })
+    
+  validation_devs <- sapply(pln_family$models, function(m) {
+    mu_pred <- predict(m, newdata = validation_data, type = "response")
+    Y_val <- validation_data$Abundance
+    mu_pred <- pmax(mu_pred, 1e-8)
+    dev_terms <- ifelse(Y_val == 0, 2 * mu_pred, 
+                       2 * (Y_val * log(Y_val / mu_pred) - (Y_val - mu_pred)))
+    mean(dev_terms[is.finite(dev_terms)])
+  })
+  
+  results[[k]] <- data.frame(fold = k, lambda = lambdas, 
+                            subtrain_deviance = subtrain_devs, 
+                            validation_deviance = validation_devs)
+}
+cv_results <- do.call(rbind, results)
+agg_results <- aggregate(cbind(subtrain_deviance, validation_deviance) ~ lambda, 
+                        data = cv_results, FUN = mean)
+best_lambda <- agg_results$lambda[which.min(agg_results$validation_deviance)]
+print(paste("Optimal lambda:", best_lambda))
+print(agg_results)
+
+plot_data <- melt(agg_results, id.vars = "lambda", 
+                 variable.name = "dataset", value.name = "deviance")
+p <- ggplot(plot_data, aes(x = log(lambda), y = deviance, color = dataset)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("subtrain_deviance" = "blue", "validation_deviance" = "red"),
+                    labels = c("Subtrain", "Validation")) +
+  labs(x = "log(λ)", y = "Deviance", title = "PLN Learning Curves (Filtered Data, Psy Removed)") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+print(p)
+```
+
+
+```{r}
+library(PLNmodels)
+library(caret)
+library(ggplot2)
+library(reshape2)
+library(MASS)
+
+# Helper function to compute deviance
+compute_deviance <- function(Y_obs, mu_pred) {
+  mu_pred <- pmax(mu_pred, 1e-8)  # Avoid log(0)
+  dev_terms <- ifelse(Y_obs == 0, 2 * mu_pred, 
+                     2 * (Y_obs * log(Y_obs / mu_pred) - (Y_obs - mu_pred)))
+  mean(dev_terms[is.finite(dev_terms)])
+}
+
+generate_pln_data <- function(n_samples = 200, n_species = 12, 
+                             network_density = 0.15, scenario = "sparse") {
+  
+  cat("=== GENERATING SYNTHETIC PLN DATA ===\n")
+  cat("Samples:", n_samples, "| Species:", n_species, 
+      "| Density:", network_density, "| Scenario:", scenario, "\n")
+  
+  n_covars <- 4
+  
+  # Generate environmental covariates
+  Temperature <- rnorm(n_samples, 0, 1)
+  Wind <- rnorm(n_samples, 0, 1) 
+  Pressure <- rnorm(n_samples, 0, 1)
+  Humidity <- rnorm(n_samples, 0, 1)
+  
+  X <- cbind(1, Temperature, Wind, Pressure, Humidity)
+  
+  # Regression coefficients - moderate effects
+  B_true <- matrix(rnorm((n_covars + 1) * n_species, 0, 0.3), 
+                   nrow = n_covars + 1, ncol = n_species)
+  B_true[1, ] <- rnorm(n_species, 1.5, 0.5)  # Reasonable intercepts
+  
+  # Create TRUE SPARSE network structure based on scenario
+  if (scenario == "sparse") {
+    # Most edges are zero, few strong edges
+    Omega_true <- diag(n_species) * 2  # Strong diagonal
+    
+    # Add sparse strong connections
+    n_edges <- round(n_species * (n_species - 1) / 2 * network_density)
+    edge_positions <- sample(which(upper.tri(diag(n_species))), n_edges)
+    
+    for(pos in edge_positions) {
+      coords <- arrayInd(pos, dim(diag(n_species)))
+      i <- coords[1]; j <- coords[2]
+      # Strong edges: either strong positive or negative
+      edge_strength <- sample(c(-1, 1), 1) * runif(1, 0.8, 1.5)
+      Omega_true[i, j] <- Omega_true[j, i] <- edge_strength
+    }
+    
+  } else if (scenario == "hub") {
+    # Hub structure: one central species connected to others
+    Omega_true <- diag(n_species) * 2
+    hub_species <- 1
+    for(i in 2:n_species) {
+      if(runif(1) < 0.7) {  # 70% chance of connection to hub
+        edge_strength <- sample(c(-1, 1), 1) * runif(1, 0.6, 1.2)
+        Omega_true[hub_species, i] <- Omega_true[i, hub_species] <- edge_strength
+      }
+    }
+    
+  } else if (scenario == "dense") {
+    # Dense network: many weak connections
+    Omega_true <- diag(n_species) * 1.5
+    for(i in 1:(n_species-1)) {
+      for(j in (i+1):n_species) {
+        if(runif(1) < 0.8) {  # 80% chance of connection
+          edge_strength <- rnorm(1, 0, 0.3)  # Weak connections
+          Omega_true[i, j] <- Omega_true[j, i] <- edge_strength
+        }
+      }
+    }
+  }
+  
+  # Ensure positive definiteness
+  min_eig <- min(eigen(Omega_true, symmetric = TRUE, only.values = TRUE)$values)
+  if(min_eig <= 0) {
+    Omega_true <- Omega_true + diag(n_species) * (abs(min_eig) + 0.1)
+  }
+  
+  Sigma_true <- solve(Omega_true)
+  
+  # Generate data
+  eta <- X %*% B_true
+  Z <- mvrnorm(n_samples, rep(0, n_species), Sigma_true)
+  log_mu <- eta + Z
+  
+  # Keep reasonable range
+  log_mu <- pmax(pmin(log_mu, 4), -2)
+  
+  Abundance <- matrix(rpois(n_samples * n_species, lambda = exp(log_mu)), 
+                     nrow = n_samples, ncol = n_species)
+  
+  colnames(Abundance) <- paste0("Species_", 1:n_species)
+  
+  covariate_df <- data.frame(
+    Temperature = Temperature,
+    Wind = Wind,
+    Pressure = Pressure, 
+    Humidity = Humidity
+  )
+  
+  synthetic_data <- prepare_data(Abundance, covariate_df)
+  
+  # Print network statistics
+  n_true_edges <- sum(abs(Omega_true[upper.tri(Omega_true)]) > 1e-6)
+  cat("True network edges:", n_true_edges, "out of", n_species*(n_species-1)/2, "possible\n")
+  cat("True network density:", round(n_true_edges / (n_species*(n_species-1)/2), 3), "\n")
+  cat("Data sparsity:", round(mean(Abundance == 0), 3), "\n\n")
+  
+  return(list(
+    data = synthetic_data,
+    true_Omega = Omega_true,
+    true_B = B_true,
+    true_network_edges = n_true_edges
+  ))
+}
+
+# Main comparison function
+compare_pln_methods <- function(data, n_folds = 3) {
+  
+  cat("=== COMPARING PLN METHODS ===\n")
+  
+  lambda_range <- 10^seq(-3, 0, length.out = 8)
+  folds <- createFolds(1:nrow(data), k = n_folds, list = TRUE)
+  
+  all_results <- list()
+  
+  for(k in 1:n_folds) {
+    cat("Processing fold", k, "of", n_folds, "...\n")
+    
+    val_idx <- folds[[k]]
+    subtrain_idx <- setdiff(1:nrow(data), val_idx)
+    
+    subtrain_data <- data[subtrain_idx, ]
+    validation_data <- data[val_idx, ]
+    
+    # Method 1: Basic PLN (no network regularization)
+    cat("  Fitting basic PLN...\n")
+    pln_basic <- PLN(Abundance ~ Temperature + Wind + Pressure + Humidity, 
+                     data = subtrain_data, 
+                     control = PLN_param(trace = 0))
+    
+    mu_basic <- predict(pln_basic, newdata = validation_data, type = "response")
+    dev_basic <- compute_deviance(validation_data$Abundance, mu_basic)
+    
+    # Method 2: PLNnetwork with full CV
+    cat("  Fitting PLNnetwork with CV...\n")
+    pln_network <- PLNnetwork(Abundance ~ Temperature + Wind + Pressure + Humidity, 
+                             data = subtrain_data,
+                             penalties = lambda_range,
+                             control = PLNnetwork_param(trace = 0))
+    
+    # Compute validation deviance for each lambda
+    validation_devs <- sapply(pln_network$models, function(m) {
+      mu_pred <- predict(m, newdata = validation_data, type = "response")
+      compute_deviance(validation_data$Abundance, mu_pred)
+    })
+    
+    # Find best lambda by validation performance
+    best_lambda_idx <- which.min(validation_devs)
+    best_lambda <- pln_network$models[[best_lambda_idx]]$penalty
+    dev_best_cv <- validation_devs[best_lambda_idx]
+    
+    # Method 3: PLNnetwork with minimal lambda (essentially no regularization)
+    min_lambda_idx <- which.min(sapply(pln_network$models, function(m) m$penalty))
+    min_lambda <- pln_network$models[[min_lambda_idx]]$penalty
+    dev_min_lambda <- validation_devs[min_lambda_idx]
+    
+    # Method 4: PLNnetwork with BIC selection (for comparison)
+    bic_values <- sapply(pln_network$models, function(m) m$BIC)
+    bic_best_idx <- which.max(bic_values)  # BIC is already negative log-likelihood scale
+    bic_lambda <- pln_network$models[[bic_best_idx]]$penalty
+    dev_bic <- validation_devs[bic_best_idx]
+    
+    # Store results
+    fold_results <- data.frame(
+      fold = k,
+      method = c("Basic_PLN", "CV_PLNnetwork", "Min_Lambda_PLNnetwork", "BIC_PLNnetwork"),
+      lambda = c(NA, best_lambda, min_lambda, bic_lambda),
+      validation_deviance = c(dev_basic, dev_best_cv, dev_min_lambda, dev_bic),
+      stringsAsFactors = FALSE
+    )
+    
+    all_results[[k]] <- fold_results
+    
+    # Print fold results
+    cat("  Results for fold", k, ":\n")
+    cat("    Basic PLN deviance:", round(dev_basic, 4), "\n")
+    cat("    CV PLNnetwork deviance:", round(dev_best_cv, 4), "(λ =", round(best_lambda, 5), ")\n")
+    cat("    Min-λ PLNnetwork deviance:", round(dev_min_lambda, 4), "(λ =", round(min_lambda, 5), ")\n")
+    cat("    BIC PLNnetwork deviance:", round(dev_bic, 4), "(λ =", round(bic_lambda, 5), ")\n")
+    cat("    CV improvement over basic:", round((dev_basic - dev_best_cv)/dev_basic * 100, 2), "%\n\n")
+  }
+  
+  # Combine all results
+  final_results <- do.call(rbind, all_results)
+  
+  # Aggregate across folds
+  summary_results <- aggregate(validation_deviance ~ method, data = final_results, 
+                              FUN = function(x) c(mean = mean(x), sd = sd(x)))
+  summary_results <- data.frame(
+    method = summary_results$method,
+    mean_deviance = summary_results$validation_deviance[, "mean"],
+    sd_deviance = summary_results$validation_deviance[, "sd"]
+  )
+  
+  return(list(
+    detailed_results = final_results,
+    summary = summary_results,
+    lambda_path_deviances = validation_devs,
+    lambdas = sapply(pln_network$models, function(m) m$penalty)
+  ))
+}
+
+# Test different scenarios
+scenarios <- c("sparse", "hub", "dense")
+sample_sizes <- c(100, 200, 400)
+
+cat("=" , rep("=", 70), "\n")
+cat("COMPREHENSIVE PLN METHOD COMPARISON\n")
+cat("=" , rep("=", 70), "\n\n")
+
+all_scenario_results <- list()
+
+for(scenario in scenarios) {
+  for(n_samples in sample_sizes) {
+    
+    cat(rep("=", 60), "\n")
+    cat("SCENARIO:", toupper(scenario), "| SAMPLE SIZE:", n_samples, "\n")
+    cat(rep("=", 60), "\n")
+    
+    # Generate data
+    set.seed(42)  # For reproducibility
+    result <- generate_pln_data(n_samples = n_samples, n_species = 8, 
+                               network_density = 0.25, scenario = scenario)
+    
+    synthetic_data <- result$data
+    
+    # Compare methods
+    comparison <- compare_pln_methods(synthetic_data, n_folds = 3)
+    
+    cat("SUMMARY RESULTS:\n")
+    print(comparison$summary)
+    
+    # Find best method
+    best_method <- comparison$summary$method[which.min(comparison$summary$mean_deviance)]
+    worst_method <- comparison$summary$method[which.max(comparison$summary$mean_deviance)]
+    
+    best_dev <- min(comparison$summary$mean_deviance)
+    basic_dev <- comparison$summary$mean_deviance[comparison$summary$method == "Basic_PLN"]
+    
+    improvement <- (basic_dev - best_dev) / basic_dev * 100
+    
+    cat("\nKEY FINDINGS:\n")
+    cat("  Best method:", best_method, "with deviance", round(best_dev, 4), "\n")
+    cat("  Improvement over basic PLN:", round(improvement, 2), "%\n")
+    cat("  Basic PLN rank:", which(order(comparison$summary$mean_deviance) == 
+                                which(comparison$summary$method == "Basic_PLN")), "out of 4\n\n")
+    
+    # Store for overall analysis
+    scenario_key <- paste(scenario, n_samples, sep = "_")
+    all_scenario_results[[scenario_key]] <- list(
+      scenario = scenario,
+      n_samples = n_samples,
+      results = comparison,
+      best_method = best_method,
+      improvement_over_basic = improvement,
+      basic_rank = which(order(comparison$summary$mean_deviance) == 
+                        which(comparison$summary$method == "Basic_PLN"))
+    )
+  }
+}
+
+# Overall conclusions
+cat(rep("=", 70), "\n")
+cat("OVERALL CONCLUSIONS\n")
+cat(rep("=", 70), "\n")
+
+basic_wins <- 0
+network_wins <- 0
+marginal_improvements <- c()
+
+for(result in all_scenario_results) {
+  if(result$best_method == "Basic_PLN") {
+    basic_wins <- basic_wins + 1
+  } else {
+    network_wins <- network_wins + 1
+  }
+  marginal_improvements <- c(marginal_improvements, result$improvement_over_basic)
+}
+
+cat("Basic PLN wins:", basic_wins, "out of", length(all_scenario_results), "scenarios\n")
+cat("Network regularization wins:", network_wins, "out of", length(all_scenario_results), "scenarios\n")
+cat("Average improvement when network wins:", round(mean(marginal_improvements[marginal_improvements > 0]), 2), "%\n")
+cat("Average degradation when network loses:", round(mean(marginal_improvements[marginal_improvements < 0]), 2), "%\n")
+cat("Overall average improvement:", round(mean(marginal_improvements), 2), "%\n")
+
+if(mean(marginal_improvements) < 1) {
+  cat("\n*** CONCLUSION: Network regularization provides minimal benefit over basic PLN ***\n")
+  cat("*** Consider using basic PLN for computational efficiency ***\n")
+} else {
+  cat("\n*** CONCLUSION: Network regularization provides meaningful improvements ***\n")
+  cat("*** Cross-validation for lambda selection is justified ***\n")
+}
+
+```
