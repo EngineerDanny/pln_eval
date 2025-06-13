@@ -1,0 +1,251 @@
+```{r}
+library(PLNmodels)
+library(caret)
+library(ggplot2)
+library(reshape2)
+library(MASS)
+
+compare_models <- function(abundance_data, k = 5, seed = 42) {
+    abundance_matrix <- abundance_data
+    n_samples <- nrow(abundance_matrix)
+    n_species <- ncol(abundance_matrix)
+    
+    k_folds <- createFolds(1:n_samples, k = k, list = TRUE)
+    
+    pln_mse <- vector("list", length(k_folds))
+    cvpln_mse <- vector("list", length(k_folds))
+    baseline_mse <- vector("list", length(k_folds))
+    
+    pln_deviance <- vector("list", length(k_folds))
+    cvpln_deviance <- vector("list", length(k_folds))
+    baseline_deviance <- vector("list", length(k_folds))
+    
+    set.seed(seed)
+    
+    for(i in seq_along(k_folds)) {
+        cat("Processing fold", i, "...\n")
+        
+        test_index <- k_folds[[i]]
+        train_index <- setdiff(1:n_samples, test_index)
+        
+        train_abundance <- abundance_matrix[train_index, ]
+        test_abundance <- abundance_matrix[test_index, ]
+        
+        test_abundance_observed <- test_abundance[, -n_species, drop = FALSE]
+        
+        last_species_mean <- mean(train_abundance[, n_species])
+        n_test <- nrow(test_abundance)
+        baseline_predictions <- rep(last_species_mean, n_test)
+        
+        poisson_deviance_species <- function(y_obs, y_pred) {
+            y_log_term <- ifelse(y_obs == 0, 0, y_obs * log(y_obs / pmax(y_pred, 1e-10)))
+            2 * (y_log_term - (y_obs - y_pred))
+        }
+        
+        true_last_species <- test_abundance[, n_species]
+        
+        baseline_mse[[i]] <- mean((true_last_species - baseline_predictions)^2)
+        baseline_deviance[[i]] <- mean(poisson_deviance_species(true_last_species, baseline_predictions))
+        
+        train_data <- prepare_data(train_abundance, data.frame(Intercept = rep(1, nrow(train_abundance))))
+        
+        myPLN <- PLN(Abundance ~ 1, data = train_data)
+        
+        newX <- data.frame("(Intercept)" = rep(1, n_test), check.names = FALSE)
+        test_abundance_observed_df <- as.data.frame(test_abundance_observed)
+        pln_predictions <- predict_cond(myPLN, newX, test_abundance_observed_df, type = "response")
+        
+        pln_pred_last_species <- pln_predictions[, 1]
+        pln_mse[[i]] <- mean((true_last_species - pln_pred_last_species)^2)
+        pln_deviance[[i]] <- mean(poisson_deviance_species(true_last_species, pln_pred_last_species))
+        
+        penalties <- 10^seq(-3, 1, length.out = 10)
+        n_train <- nrow(train_abundance)
+        inner_folds <- createFolds(1:n_train, k = 3, list = TRUE)
+        
+        penalty_deviances <- numeric(length(penalties))
+        
+        for(p in seq_along(penalties)) {
+            inner_deviances <- numeric(length(inner_folds))
+            
+            for(j in seq_along(inner_folds)) {
+                inner_test_index <- inner_folds[[j]]
+                inner_train_index <- setdiff(1:n_train, inner_test_index)
+                
+                inner_train_abundance <- train_abundance[inner_train_index, ]
+                inner_test_abundance <- train_abundance[inner_test_index, ]
+                
+                inner_train_data <- prepare_data(inner_train_abundance, data.frame(Intercept = rep(1, nrow(inner_train_abundance))))
+                
+                inner_network <- PLNnetwork(Abundance ~ 1, 
+                                          data = inner_train_data, 
+                                          penalties = penalties[p])
+                
+                inner_test_observed <- inner_test_abundance[, -n_species, drop = FALSE]
+                inner_newX <- data.frame("(Intercept)" = rep(1, nrow(inner_test_abundance)), check.names = FALSE)
+                inner_test_observed_df <- as.data.frame(inner_test_observed)
+                
+                inner_predictions <- predict_cond(inner_network$models[[1]], 
+                                                 inner_newX,
+                                                 inner_test_observed_df,
+                                                 type = "response")
+                
+                inner_true_last <- inner_test_abundance[, n_species]
+                inner_pred_last <- inner_predictions[, 1]
+                
+                inner_deviances[j] <- mean(poisson_deviance_species(inner_true_last, inner_pred_last))
+            }
+            penalty_deviances[p] <- mean(inner_deviances)
+        }
+        
+        best_penalty <- penalties[which.min(penalty_deviances)]
+        cat("  Selected penalty:", best_penalty, "\n")
+        
+        myPLNnetwork <- PLNnetwork(Abundance ~ 1, 
+                                 data = train_data, 
+                                 penalties = best_penalty)
+        cvpln_predictions <- predict_cond(myPLNnetwork$models[[1]], 
+                                         newX,
+                                         test_abundance_observed_df,
+                                         type = "response")
+        
+        cvpln_pred_last_species <- cvpln_predictions[, 1]
+        cvpln_mse[[i]] <- mean((true_last_species - cvpln_pred_last_species)^2)
+        cvpln_deviance[[i]] <- mean(poisson_deviance_species(true_last_species, cvpln_pred_last_species))
+    }
+    
+    cat("\n=== Final Results - MSE ===\n")
+    cat("BASELINE - Mean MSE:", round(mean(sapply(baseline_mse, mean)), 4), 
+        "± SD:", round(sd(sapply(baseline_mse, mean)), 4), "\n")
+    cat("PLN - Mean MSE:", round(mean(sapply(pln_mse, mean)), 4), 
+        "± SD:", round(sd(sapply(pln_mse, mean)), 4), "\n")
+    cat("CVPLN - Mean MSE:", round(mean(sapply(cvpln_mse, mean)), 4), 
+        "± SD:", round(sd(sapply(cvpln_mse, mean)), 4), "\n")
+    
+    cat("\n=== Final Results - DEVIANCE ===\n")
+    cat("BASELINE - Mean Deviance:", round(mean(sapply(baseline_deviance, mean)), 4), 
+        "± SD:", round(sd(sapply(baseline_deviance, mean)), 4), "\n")
+    cat("PLN - Mean Deviance:", round(mean(sapply(pln_deviance, mean)), 4), 
+        "± SD:", round(sd(sapply(pln_deviance, mean)), 4), "\n")
+    cat("CVPLN - Mean Deviance:", round(mean(sapply(cvpln_deviance, mean)), 4), 
+        "± SD:", round(sd(sapply(cvpln_deviance, mean)), 4), "\n")
+    
+    fold_mse_baseline <- sapply(baseline_mse, mean)
+    fold_mse_pln <- sapply(pln_mse, mean)
+    fold_mse_cvpln <- sapply(cvpln_mse, mean)
+    
+    fold_dev_baseline <- sapply(baseline_deviance, mean)
+    fold_dev_pln <- sapply(pln_deviance, mean)
+    fold_dev_cvpln <- sapply(cvpln_deviance, mean)
+    
+    cat("\n=== Model Comparisons vs Baseline - MSE (p-values) ===\n")
+    cat("BASELINE vs PLN:", round(t.test(fold_mse_baseline, fold_mse_pln, paired = TRUE)$p.value, 4), "\n")
+    cat("BASELINE vs CVPLN:", round(t.test(fold_mse_baseline, fold_mse_cvpln, paired = TRUE)$p.value, 4), "\n")
+    
+    cat("\n=== Model Comparisons vs Baseline - DEVIANCE (p-values) ===\n")
+    cat("BASELINE vs PLN:", round(t.test(fold_dev_baseline, fold_dev_pln, paired = TRUE)$p.value, 4), "\n")
+    cat("BASELINE vs CVPLN:", round(t.test(fold_dev_baseline, fold_dev_cvpln, paired = TRUE)$p.value, 4), "\n")
+    
+    cat("\n=== Model Comparisons - MSE (p-values) ===\n")
+    cat("PLN vs CVPLN:", round(t.test(fold_mse_pln, fold_mse_cvpln, paired = TRUE)$p.value, 4), "\n")
+    
+    cat("\n=== Model Comparisons - DEVIANCE (p-values) ===\n")
+    cat("PLN vs CVPLN:", round(t.test(fold_dev_pln, fold_dev_cvpln, paired = TRUE)$p.value, 4), "\n")
+    
+    cat("\n=== Fold-by-fold MSE ===\n")
+    results_df_mse <- data.frame(
+        Fold = 1:length(k_folds),
+        BASELINE = round(fold_mse_baseline, 4),
+        PLN = round(fold_mse_pln, 4),
+        CVPLN = round(fold_mse_cvpln, 4)
+    )
+    print(results_df_mse)
+    
+    cat("\n=== Fold-by-fold DEVIANCE ===\n")
+    results_df_dev <- data.frame(
+        Fold = 1:length(k_folds),
+        BASELINE = round(fold_dev_baseline, 4),
+        PLN = round(fold_dev_pln, 4),
+        CVPLN = round(fold_dev_cvpln, 4)
+    )
+    print(results_df_dev)
+    
+    cat("\n=== Improvement over Baseline - MSE ===\n")
+    cat("PLN improvement:", round((mean(fold_mse_baseline) - mean(fold_mse_pln)) / mean(fold_mse_baseline) * 100, 2), "%\n")
+    cat("CVPLN improvement:", round((mean(fold_mse_baseline) - mean(fold_mse_cvpln)) / mean(fold_mse_baseline) * 100, 2), "%\n")
+    
+    cat("\n=== Improvement over Baseline - DEVIANCE ===\n")
+    cat("PLN improvement:", round((mean(fold_dev_baseline) - mean(fold_dev_pln)) / mean(fold_dev_baseline) * 100, 2), "%\n")
+    cat("CVPLN improvement:", round((mean(fold_dev_baseline) - mean(fold_dev_cvpln)) / mean(fold_dev_baseline) * 100, 2), "%\n")
+}
+
+filter_sparse_species <- function(abundance_data, min_mean = 0.5, min_prevalence = 0.5, transform = FALSE, transform_method = "log1p") {
+    species_means <- colMeans(abundance_data)
+    species_prevalence <- colMeans(abundance_data > 0)
+    
+    keep_species <- (species_means >= min_mean) & (species_prevalence >= min_prevalence)
+    
+    cat("Removing", sum(!keep_species), "sparse species:\n")
+    cat(names(abundance_data)[!keep_species], "\n")
+    cat("Keeping", sum(keep_species), "species for analysis\n")
+    
+    filtered_data <- abundance_data[, keep_species]
+    
+    if(transform) {
+        cat("Applying", transform_method, "transformation:\n")
+        for(sp in colnames(filtered_data)) {
+            original_range <- range(filtered_data[, sp])
+            filtered_data[, sp] <- log1p(filtered_data[, sp])
+            new_range <- range(filtered_data[, sp])
+            cat("  ", sp, ": range [", original_range[1], ",", original_range[2], 
+                "] -> [", round(new_range[1],2), ",", round(new_range[2],2), "]\n")
+        }
+    }
+    
+    return(filtered_data)
+}
+
+```
+
+```{r}
+data(trichoptera)
+my_data <- filter_sparse_species(trichoptera$Abundance)
+my_data <- trichoptera$Abundance
+
+log_transform <- function(data, pseudocount = 1) {
+  log(data + pseudocount)
+}
+
+# Convert to relative abundances
+relative_abundance <- function(data) {
+  row_sums <- rowSums(data)
+  return(data / row_sums)
+}
+
+sqrt_transform <- function(data) {
+  sqrt(data)
+}
+
+my_data <- log_transform(my_data)
+str(my_data)
+summary(my_data)
+
+# Calculate mean and variance for each species
+mean_var_stats <- data.frame(
+  species = names(my_data),
+  mean = sapply(my_data, mean),
+  variance = sapply(my_data, var),
+  stringsAsFactors = FALSE
+)
+
+# Calculate variance/mean ratio (dispersion index)
+mean_var_stats$dispersion_index <- mean_var_stats$variance / mean_var_stats$mean
+print(mean_var_stats)
+
+
+compare_models(
+    #abundance_data = my_data,
+    abundance_data = filter_sparse_species(trichoptera$Abundance),
+    k = 5
+)
+```
