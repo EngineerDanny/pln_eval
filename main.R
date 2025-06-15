@@ -26,8 +26,6 @@ compare_models <- function(abundance_data, k = 5, seed = 42) {
   glmnet_deviance <- vector("list", length(k_folds))
   baseline_deviance <- vector("list", length(k_folds))
   
-  #set.seed(seed)
-  
   for(i in seq_along(k_folds)) {
     cat("Processing fold", i, "...\n")
     
@@ -204,8 +202,8 @@ generate_pln_data <- function(n_samples = 100, n_species = 500, sparsity = 0.9, 
   #set.seed(seed)
   
   # Higher sparsity = lower mu values = more zeros
-  mu_min <- 0.5 - sparsity * 1.5  # ranges from 0.5 (sparsity=0) to -1.0 (sparsity=1)
-  mu_max <- 2.5 - sparsity * 1.0  # ranges from 2.5 (sparsity=0) to 1.5 (sparsity=1)
+  mu_min <- 0.5 - sparsity * 1.5
+  mu_max <- 2.5 - sparsity * 1.0
   
   mu <- runif(n_species, mu_min, mu_max)
   
