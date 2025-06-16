@@ -9,24 +9,17 @@ library(ggplot2)
 library(MASS)
 library(broom)
 library(statmod)
-
-
-
-
-
-Sys.setenv(LD_LIBRARY_PATH = "/packages/anaconda3/2024.02/lib")
-
-# If TRUE, load them directly:
-dyn.load("/packages/anaconda3/2024.02/lib/libicui18n.so.73")
-dyn.load("/packages/anaconda3/2024.02/lib/libicuuc.so.73") 
-dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
-
+library(mlr3resampling)
 library(PLNmodels)
 
-task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/HMPv13_filtered.csv")
-task.dt <- task.dt[1:300]
 
+task.dt <- data.table::fread("~/Projects/pln_eval/data/HMPv13_filtered.csv")
+task.dt <- task.dt[1:300]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
+
+# Apply log1p transformation to all abundance columns
+task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
+
 new_column_names <- paste0("Taxa", taxa_columns)
 setnames(task.dt, old = taxa_columns, new = new_column_names)
 task.list <- list()
@@ -42,6 +35,15 @@ for (col_name in new_column_names) {
 }
 
 
+control = PLN_param(
+  backend = "torch",
+  trace = 1,
+  covariance = c("full", "diagonal", "spherical", "fixed"),
+  Omega = NULL,
+  config_post = list(),
+  config_optim = list(),
+  inception = NULL
+)
 LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                           inherit = LearnerRegr,
                           public = list(
@@ -280,16 +282,19 @@ LearnerRegrTweedieGlmnet <- R6::R6Class("LearnerRegrTweedieGlmnet",
                                         pv$var.power <- NULL
                                         pv$link.power <- NULL
                                         
-                                        invoke(cv.glmnet, 
-                                               x = data, 
-                                               y = target, 
-                                               family = family_obj,
-                                               type.measure = "deviance",
-                                           
-                                               nfolds = 5,
-                                               thresh = 1e-6,
-                                               lambda = exp(seq(log(0.1), log(0.001), length.out = 3)),
-                                               .args = pv)
+                                        cv.glmnet(
+                                          x = data, 
+                                          y = target, 
+                                          #family = negative.binomial(theta = 1),
+                                          alpha = 1, 
+                                          #lambda = exp(seq(log(1.0), log(0.001), length.out = 50)),  # 50 lambdas
+                                          type.measure = "deviance",
+                                          intercept = TRUE,
+                                          nfolds = 5,                    # More folds
+                                          standardize = TRUE,
+                                          maxit = 1000000,              # More iterations
+                                          thresh = 1e-6                 # Relaxed convergence
+                                        )
                                       },
                                       
                                       .predict = function(task) {
@@ -345,8 +350,8 @@ debug.score.dt <- mlr3resampling::score(debug.result, poisson_measure)
 debug.score.dt <- mlr3resampling::score(debug.result, mlr3::msr("regr.rmse"))
 
 aggregate_results <- debug.score.dt[, .(
-  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
-  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
+  mean_deviance =log( mean(regr.poisson_deviance)  ),
+  sd_deviance = log(sd(  regr.poisson_deviance ) ),
   n_iterations = .N
 ), by = .(learner_id, train.subsets)]
 
@@ -369,52 +374,25 @@ t_test_result <- t.test(
 print(t_test_result)
 
 
-# Fit a simple glmnet manually to see what's happening
-library(glmnet)
 
 # Get your data
 X <- as.matrix(task.dt[, setdiff(names(task.dt), c("Group_ID", "Taxa4365684")), with = FALSE])
 y <- task.dt$Taxa4365684
 
-# Fit manually
-cv_fit <- glmnet(X, y, family = "poisson", 
-                 alpha = 1, 
-                 lambda = 0.01, thresh = 1e-4,
-                 maxit = 1000000)
-
-# This should work and give you a proper comparison:
-library(MASS)
-library(statmod)
-
-
-# For built-in Poisson, let glmnet choose lambda
-cv_fit_poisson <- cv.glmnet(
-  x = X,
-  y = y, 
-  family = "poisson",  # Built-in implementation
-  alpha = 1,
-  type.measure = "deviance",
-  nfolds = 5
-  # No custom lambda - let glmnet choose
-)
-plot(cv_fit_poisson)
-
-# Compare the lambda ranges
-print("Tweedie lambda range:")
-print(range(cv_fit$lambda))
-print("Poisson lambda range:")  
-print(range(cv_fit_poisson$lambda))
 
 # Since glmnet scales internally, just fix the other parameters
 cv_fit <- cv.glmnet(
   x = X, 
   y = y, 
-  family = tweedie(var.power = 1, link.power = 0),
+  #family = tweedie(var.power = 1, link.power = 0),
   alpha = 1, 
-  lambda = exp(seq(log(0.1), log(0.001), length.out = 10)),  # Higher max lambda
-  type.measure = "deviance",
+  lambda = exp(seq(log(10), log(0.001), length.out = 30)),  # Higher max lambda
+  #lambda = 0.1,
+  #type.measure = "deviance",
+  intercept = T,
   nfolds = 5,
-  thresh = 1e-6
+  standardize=TRUE
+  #thresh = 1e-60
   #maxit = 1000000
 )
 
@@ -425,6 +403,7 @@ print(cv_fit$lambda.1se)
 
 # Check predictions vs baseline
 pred_glmnet <- predict(cv_fit, newx = X, s = "lambda.min", type = "response")
+#pred_glmnet <- predict(cv_fit, newx = X)
 pred_baseline <- rep(mean(y), length(y))
 
 # Calculate Poisson deviance instead of RMSE
