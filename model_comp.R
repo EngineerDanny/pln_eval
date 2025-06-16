@@ -285,6 +285,10 @@ LearnerRegrTweedieGlmnet <- R6::R6Class("LearnerRegrTweedieGlmnet",
                                                y = target, 
                                                family = family_obj,
                                                type.measure = "deviance",
+                                           
+                                               nfolds = 5,
+                                               thresh = 1e-6,
+                                               lambda = exp(seq(log(0.1), log(0.001), length.out = 3)),
                                                .args = pv)
                                       },
                                       
@@ -302,7 +306,7 @@ LearnerRegrTweedieGlmnet <- R6::R6Class("LearnerRegrTweedieGlmnet",
 mlr_learners$add("regr.tweedie_glmnet", LearnerRegrTweedieGlmnet)
 glmnet_learner <- lrn("regr.tweedie_glmnet")
 glmnet_learner$param_set$values$alpha <- 1
-glmnet_learner$param_set$values$var.power <- 1.5
+glmnet_learner$param_set$values$var.power <- 1
 
 
 
@@ -337,12 +341,12 @@ debug.grid <- mlr3::benchmark_grid(
   debug_cv
 )
 debug.result <- mlr3::benchmark(debug.grid)
-#debug.score.dt <- mlr3resampling::score(debug.result, poisson_measure)
+debug.score.dt <- mlr3resampling::score(debug.result, poisson_measure)
 debug.score.dt <- mlr3resampling::score(debug.result, mlr3::msr("regr.rmse"))
 
 aggregate_results <- debug.score.dt[, .(
-  mean_deviance = mean( regr.rmse  , na.rm = TRUE),
-  sd_deviance = sd( regr.rmse , na.rm = TRUE),
+  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
+  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
   n_iterations = .N
 ), by = .(learner_id, train.subsets)]
 
@@ -383,10 +387,37 @@ library(MASS)
 library(statmod)
 
 
-# Tweedie can handle overdispersion and zeros
-cv_fit <- cv.glmnet(X, y, family = tweedie(var.power = 1.5, link.power = 0), 
-                    alpha = 1, type.measure = "deviance")
-print(cv_fit$name)
+# For built-in Poisson, let glmnet choose lambda
+cv_fit_poisson <- cv.glmnet(
+  x = X,
+  y = y, 
+  family = "poisson",  # Built-in implementation
+  alpha = 1,
+  type.measure = "deviance",
+  nfolds = 5
+  # No custom lambda - let glmnet choose
+)
+plot(cv_fit_poisson)
+
+# Compare the lambda ranges
+print("Tweedie lambda range:")
+print(range(cv_fit$lambda))
+print("Poisson lambda range:")  
+print(range(cv_fit_poisson$lambda))
+
+# Since glmnet scales internally, just fix the other parameters
+cv_fit <- cv.glmnet(
+  x = X, 
+  y = y, 
+  family = tweedie(var.power = 1, link.power = 0),
+  alpha = 1, 
+  lambda = exp(seq(log(0.1), log(0.001), length.out = 10)),  # Higher max lambda
+  type.measure = "deviance",
+  nfolds = 5,
+  thresh = 1e-6
+  #maxit = 1000000
+)
+
 # Check the fit
 plot(cv_fit)
 print(cv_fit$lambda.min)
@@ -395,6 +426,24 @@ print(cv_fit$lambda.1se)
 # Check predictions vs baseline
 pred_glmnet <- predict(cv_fit, newx = X, s = "lambda.min", type = "response")
 pred_baseline <- rep(mean(y), length(y))
+
+# Calculate Poisson deviance instead of RMSE
+calculate_poisson_deviance <- function(y_true, y_pred) {
+  # Ensure positive predictions for Poisson deviance
+  y_pred <- pmax(y_pred, .Machine$double.eps)
+  
+  # Poisson deviance calculation
+  dev <- ifelse(y_true == 0,
+                2 * y_pred,  # When y = 0
+                2 * (y_true * log(y_true / y_pred) - (y_true - y_pred)))  # When y > 0
+  
+  return(mean(dev, na.rm = TRUE))
+}
+
+mean_dev_glmnet <- calculate_poisson_deviance(y, pred_glmnet)
+mean_dev_baseline <- calculate_poisson_deviance(y, pred_baseline)
+cat("Manual glmnet Mean Deviance:", mean_dev_glmnet, "\n")
+cat("Baseline Mean Deviance:", mean_dev_baseline, "\n")
 
 rmse_glmnet <- sqrt(mean((y - pred_glmnet)^2))
 rmse_baseline <- sqrt(mean((y - pred_baseline)^2))
