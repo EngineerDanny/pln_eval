@@ -1,2 +1,5 @@
 *.png
 *.csv
+*.rds
+logs
+jobs

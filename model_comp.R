@@ -9,8 +9,8 @@ library(ggplot2)
 library(MASS)
 library(broom)
 library(statmod)
-
-
+library(mlr3resampling)
+library(torch)
 
 
 
@@ -24,9 +24,11 @@ dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
 library(PLNmodels)
 
 task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/HMPv13_filtered.csv")
-task.dt <- task.dt[1:300]
-
+task.dt <- task.dt[1:50]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
+
+task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
+
 new_column_names <- paste0("Taxa", taxa_columns)
 setnames(task.dt, old = taxa_columns, new = new_column_names)
 task.list <- list()
@@ -46,11 +48,11 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                           inherit = LearnerRegr,
                           public = list(
                             initialize = function() {
-                              ps = ps(
-                                covariance = p_fct(c("full", "diagonal", "spherical"), default = "full", tags = "train"),
-                                trace = p_int(0, 2, default = 0, tags = "train"),
-                                backend = p_fct(c("nlopt", "torch"), default = "nlopt", tags = "train"),
-                                offset_scheme = p_fct(c("TSS", "CSS", "RLE", "GMPR", "none"), default = "TSS", tags = "train")
+                              ps = ps( 
+                                covariance = paradox::p_fct(c("full", "diagonal", "spherical"), default = "full", tags = "train"),
+                                trace = paradox::p_int(0, 2, default = 0, tags = "train"),
+                                backend = paradox::p_fct(c("nlopt", "torch"), default = "nlopt", tags = "train"),
+                                offset_scheme = paradox::p_fct(c("TSS", "CSS", "RLE", "GMPR", "none"), default = "TSS", tags = "train")
                               )
                               ps$values = list(covariance = "full", trace = 0, backend = "nlopt", offset_scheme = "TSS")
                               super$initialize(
@@ -87,21 +89,22 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                               
                               # Prepare data for PLN using prepare_data
                               # This may remove empty samples (rowSums == 0)
-                              pln_data <- prepare_data(
+                              pln_data <- PLNmodels::prepare_data(
                                 counts = abundance_matrix, 
                                 covariates = covariates,
                                 offset = pv$offset_scheme %||% "TSS"
                               )
                               
                               # Set up PLN control parameters
-                              control_params <- PLN_param(
+                              control_params <- PLNmodels::PLN_param(
                                 covariance = pv$covariance %||% "full",
                                 trace = pv$trace %||% 0,
-                                backend = pv$backend %||% "nlopt"
+                                backend = pv$backend %||% "torch"
+                                #backend = pv$backend %||% "nlopt"
                               )
                               
                               # Fit PLN model on prepared data
-                              pln_model <- PLN(Abundance ~ 1, data = pln_data, control = control_params)
+                              pln_model <- PLNmodels::PLN(Abundance ~ 1, data = pln_data, control = control_params)
                               
                               # Store model and related info
                               self$model <- list(
@@ -112,7 +115,6 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                               )
                               self$model
                             },
-                            
                             .predict = function(task) {
                               # Get test data from MLR3 task
                               X_test <- task$data(cols = task$feature_names)
@@ -149,7 +151,7 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                                 rownames(test_covariates) <- rownames(non_empty_abundance)
                                 
                                 # Prepare data for PLN (should not remove any samples now)
-                                test_pln_data <- prepare_data(
+                                test_pln_data <- PLNmodels::prepare_data(
                                   counts = non_empty_abundance,
                                   covariates = test_covariates,
                                   offset = self$model$pv$offset_scheme %||% "TSS"
@@ -166,7 +168,7 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                                 conditioning_data <- test_pln_data$Abundance[, feature_names, drop = FALSE]
                                 
                                 # Make conditional predictions using predict_cond
-                                pln_cond_predictions <- predict_cond(
+                                pln_cond_predictions <- PLNmodels::predict_cond(
                                   self$model$pln_model, 
                                   newX, 
                                   conditioning_data, 
@@ -205,6 +207,7 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                             }
                           )
 )
+
 
 MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
                                       inherit = mlr3::MeasureRegr,
@@ -318,23 +321,24 @@ mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
 # Then set up your learners with fallback
 #optimal_theta <- theta.ml(task.dt$Taxa4365684, mu = mean(task.dt$Taxa4365684))
 
-#glmnet_learner <- mlr3learners::LearnerRegrCVGlmnet$new()
-#glmnet_learner$param_set$values$alpha <- 1
+glmnet_learner <- mlr3learners::LearnerRegrCVGlmnet$new()
+glmnet_learner$param_set$values$alpha <- 1
+glmnet_learner$param_set$values$type.measure <- "deviance"
 #glmnet_learner$param_set$values$family <- "poisson"
 #glmnet_learner$fallback <- mlr3::LearnerRegrFeatureless$new()
 #glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
 
 reg.learner.list <- list(
-  glmnet_learner,
-  mlr3::LearnerRegrFeatureless$new(),
+  #glmnet_learner,
+  #mlr3::LearnerRegrFeatureless$new(),
   LearnerRegrPLN$new()
 )
 
-## For debugging
+
+### For debugging
 debug_cv <- mlr3resampling::ResamplingSameOtherSizesCV$new()
 debug_cv$param_set$values$subsets = "A"
 debug_cv$param_set$values$folds=5
-
 debug.grid <- mlr3::benchmark_grid(
   task.list["Taxa4365684"],
   reg.learner.list,
@@ -342,111 +346,51 @@ debug.grid <- mlr3::benchmark_grid(
 )
 debug.result <- mlr3::benchmark(debug.grid)
 debug.score.dt <- mlr3resampling::score(debug.result, poisson_measure)
-debug.score.dt <- mlr3resampling::score(debug.result, mlr3::msr("regr.rmse"))
-
+#debug.score.dt <- mlr3resampling::score(debug.result, mlr3::msr("regr.rmse"))
 aggregate_results <- debug.score.dt[, .(
   mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
   sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
   n_iterations = .N
 ), by = .(learner_id, train.subsets)]
-
 print(aggregate_results)
 
 
 
-# Check your target variable
-summary(task.dt$Taxa4365684)
-cat("Zeros:", mean(task.dt$Taxa4365684 == 0) * 100, "%\n")
-cat("Mean:", mean(task.dt$Taxa4365684), "\n")
-cat("Variance:", var(task.dt$Taxa4365684), "\n")
+### For parallel real tests
+future::plan("sequential")
+mycv <- mlr3resampling::ResamplingSameOtherSizesCV$new()
+mycv$param_set$values$subsets = "A"
+mycv$param_set$values$folds=5
 
-# Test if the difference is significant
-t_test_result <- t.test(
-  debug.score.dt[learner_id == "regr.pln", regr.rmse],
-  debug.score.dt[learner_id == "regr.featureless", regr.rmse],
-  paired = TRUE
+(reg.bench.grid <- mlr3::benchmark_grid(
+  task.list,
+  reg.learner.list,
+  mycv))
+
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_17_reg"
+reg <- batchtools::loadRegistry(reg.dir)
+unlink(reg.dir, recursive=TRUE)
+reg = batchtools::makeExperimentRegistry(
+  file.dir = reg.dir,
+  seed = 1,
+  packages = "mlr3verse"
 )
-print(t_test_result)
+mlr3batchmark::batchmark(
+  reg.bench.grid, store_models = TRUE, reg=reg)
+job.table <- batchtools::getJobTable(reg=reg)
+chunks <- data.frame(job.table, chunk=1)
+batchtools::submitJobs(chunks, resources=list(
+  walltime = 60*480,#seconds
+  memory = 1024,#megabytes per cpu
+  ncpus=1,  #>1 for multicore/parallel jobs.
+  ntasks=1, #>1 for MPI jobs.
+  chunks.as.arrayjobs=TRUE), reg=reg)
 
 
-# Fit a simple glmnet manually to see what's happening
-library(glmnet)
+batchtools::getStatus(reg=reg)
+#batchtools::killJobs(reg=reg)
+jobs.after <- batchtools::getJobTable(reg=reg)
+table(jobs.after$error)
+jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
+save(bmr, file="/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13.RData")
 
-# Get your data
-X <- as.matrix(task.dt[, setdiff(names(task.dt), c("Group_ID", "Taxa4365684")), with = FALSE])
-y <- task.dt$Taxa4365684
-
-# Fit manually
-cv_fit <- glmnet(X, y, family = "poisson", 
-                 alpha = 1, 
-                 lambda = 0.01, thresh = 1e-4,
-                 maxit = 1000000)
-
-# This should work and give you a proper comparison:
-library(MASS)
-library(statmod)
-
-
-# For built-in Poisson, let glmnet choose lambda
-cv_fit_poisson <- cv.glmnet(
-  x = X,
-  y = y, 
-  family = "poisson",  # Built-in implementation
-  alpha = 1,
-  type.measure = "deviance",
-  nfolds = 5
-  # No custom lambda - let glmnet choose
-)
-plot(cv_fit_poisson)
-
-# Compare the lambda ranges
-print("Tweedie lambda range:")
-print(range(cv_fit$lambda))
-print("Poisson lambda range:")  
-print(range(cv_fit_poisson$lambda))
-
-# Since glmnet scales internally, just fix the other parameters
-cv_fit <- cv.glmnet(
-  x = X, 
-  y = y, 
-  family = tweedie(var.power = 1, link.power = 0),
-  alpha = 1, 
-  lambda = exp(seq(log(0.1), log(0.001), length.out = 10)),  # Higher max lambda
-  type.measure = "deviance",
-  nfolds = 5,
-  thresh = 1e-6
-  #maxit = 1000000
-)
-
-# Check the fit
-plot(cv_fit)
-print(cv_fit$lambda.min)
-print(cv_fit$lambda.1se)
-
-# Check predictions vs baseline
-pred_glmnet <- predict(cv_fit, newx = X, s = "lambda.min", type = "response")
-pred_baseline <- rep(mean(y), length(y))
-
-# Calculate Poisson deviance instead of RMSE
-calculate_poisson_deviance <- function(y_true, y_pred) {
-  # Ensure positive predictions for Poisson deviance
-  y_pred <- pmax(y_pred, .Machine$double.eps)
-  
-  # Poisson deviance calculation
-  dev <- ifelse(y_true == 0,
-                2 * y_pred,  # When y = 0
-                2 * (y_true * log(y_true / y_pred) - (y_true - y_pred)))  # When y > 0
-  
-  return(mean(dev, na.rm = TRUE))
-}
-
-mean_dev_glmnet <- calculate_poisson_deviance(y, pred_glmnet)
-mean_dev_baseline <- calculate_poisson_deviance(y, pred_baseline)
-cat("Manual glmnet Mean Deviance:", mean_dev_glmnet, "\n")
-cat("Baseline Mean Deviance:", mean_dev_baseline, "\n")
-
-rmse_glmnet <- sqrt(mean((y - pred_glmnet)^2))
-rmse_baseline <- sqrt(mean((y - pred_baseline)^2))
-
-cat("Manual glmnet RMSE:", rmse_glmnet, "\n")
-cat("Baseline RMSE:", rmse_baseline, "\n")
