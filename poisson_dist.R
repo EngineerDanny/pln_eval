@@ -1,9 +1,70 @@
-library(glmnet)
-set.seed(2020)
-n <- 100
-p <- 4
-x <- matrix(runif(n * p, 5, 10), n)
-y <- rpois(n, exp(rowMeans(x)))
-# glm fit
-glmfit <- glm(y ~ x - 1, family = poisson)
-coef(glmfit)
+
+library(PLNmodels)   # ≥ 1.1.0
+library(glmnet)      # ≥ 4.1‑x
+
+# ===================================================================
+# 1.  LASSO‑INITIALISED PLN  (single response)
+# ===================================================================
+# Fits one Poisson‑ or Gaussian‑Lasso on C ~ A + B to obtain a sparse
+# coefficient vector b_init (length = 2).  Then hands that vector to
+# PLN as the starting value for B.
+# -------------------------------------------------------------------
+
+lasso_init_single <- function(Y, X, offset = NULL,
+                              family = c("poisson", "gaussian"),
+                              lambda_choice = "lambda.1se",
+                              intercept = TRUE) {
+  ## Y         : numeric vector, counts of species C (length n)
+  ## X         : n × d matrix / data.frame of predictors (A and B)
+  ## offset    : numeric vector length n (log‑offset for C) or NULL
+  ## family    : "poisson" (default) or "gaussian" if you prefer the
+  ##             log‑count approximation
+  ## lambda_choice
+  ##   • character  – one of c("lambda.min", "lambda.1se") from cv.glmnet
+  ##   • numeric    – a user‑supplied λ
+  ## intercept : include intercept term inside glmnet?  Set FALSE if
+  ##             you have a column of 1’s in X or use an offset.
+  family <- match.arg(family)
+  
+  ## run cross‑validated glmnet to pick a sensible λ
+  cvfit <- cv.glmnet(x = as.matrix(X),
+                     y = if (family == "gaussian") log1p(Y) else Y,
+                     family = family,
+                     alpha  = 1,              # pure Lasso
+                     offset = offset,
+                     intercept = intercept)
+  
+  ## extract coefficients at requested λ
+  s <- if (is.character(lambda_choice)) cvfit[[lambda_choice]] else lambda_choice
+  beta_hat <- as.numeric(coef(cvfit, s = s))[-1L]   # drop intercept
+  beta_hat
+}
+
+# --------------------------
+# Example minimal workflow  |
+# --------------------------
+# Suppose `counts` is an n × 3 data.frame named A, B, C
+counts  <- data.frame(A = rpois(30, 10),
+                       B = rpois(30, 15), 
+                      C = rpois(30, 20))
+offsetC <- log(rowSums(counts))  # (optional) library size offset
+#
+X_mat   <- as.matrix(counts[, c("A", "B")])
+Y_vec   <- counts$C
+#
+# ## 1‑a  Get sparse start
+b0 <- lasso_init_single(Y_vec, X_mat, offset = offsetC,
+                         family = "poisson", lambda_choice = "lambda.1se",
+                         intercept = FALSE)
+#
+# ## 1‑b  Wrap into PLN
+ctrl <- PLN_param()
+ctrl$inception <- list(B = matrix(b0, nrow = ncol(X_mat)))
+#
+fit_LassoInit <- PLN(C ~ A + B + offset(offsetC),
+                      data    = counts,
+                      control = ctrl)
+
+fit_LassoInit
+beta_final <- coef(fit_LassoInit)  
+beta_final

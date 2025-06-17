@@ -14,7 +14,7 @@ library(PLNmodels)
 
 
 task.dt <- data.table::fread("~/Projects/pln_eval/data/HMPv13_filtered.csv")
-task.dt <- task.dt[1:300]
+task.dt <- task.dt[1:100]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 
 # Apply log1p transformation to all abundance columns
@@ -99,7 +99,8 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                               control_params <- PLN_param(
                                 covariance = pv$covariance %||% "full",
                                 trace = pv$trace %||% 0,
-                                backend = pv$backend %||% "nlopt"
+                                backend = pv$backend %||% "torch"
+                                #backend = pv$backend %||% "nlopt
                               )
                               
                               # Fit PLN model on prepared data
@@ -323,8 +324,9 @@ mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
 # Then set up your learners with fallback
 #optimal_theta <- theta.ml(task.dt$Taxa4365684, mu = mean(task.dt$Taxa4365684))
 
-#glmnet_learner <- mlr3learners::LearnerRegrCVGlmnet$new()
-#glmnet_learner$param_set$values$alpha <- 1
+glmnet_learner <- mlr3learners::LearnerRegrCVGlmnet$new()
+glmnet_learner$param_set$values$alpha <- 1
+#glmnet_learner$param_set$values$type.measure <- "deviance"
 #glmnet_learner$param_set$values$family <- "poisson"
 #glmnet_learner$fallback <- mlr3::LearnerRegrFeatureless$new()
 #glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
@@ -367,8 +369,9 @@ cat("Variance:", var(task.dt$Taxa4365684), "\n")
 
 # Test if the difference is significant
 t_test_result <- t.test(
-  debug.score.dt[learner_id == "regr.pln", regr.rmse],
-  debug.score.dt[learner_id == "regr.featureless", regr.rmse],
+  #debug.score.dt[learner_id == "regr.pln", regr.rmse],
+  debug.score.dt[learner_id == "regr.tweedie_glmnet", regr.poisson_deviance],
+  debug.score.dt[learner_id == "regr.featureless", regr.poisson_deviance],
   paired = TRUE
 )
 print(t_test_result)
