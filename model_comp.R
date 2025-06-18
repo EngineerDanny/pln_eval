@@ -567,6 +567,36 @@ LearnerRegrPLNGlmnet <- R6::R6Class("LearnerRegrPLNGlmnet",
                                     )
 )
 
+MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
+                                      inherit = mlr3::MeasureRegr,
+                                      public = list(
+                                        initialize = function() {
+                                          super$initialize(
+                                            id = "regr.poisson_deviance",
+                                            range = c(0, Inf),
+                                            minimize = TRUE,
+                                            predict_type = "response",
+                                            packages = character(0),
+                                            properties = character(0),
+                                            label = "Poisson Deviance",
+                                            man = "custom::poisson_deviance"
+                                          )
+                                        }
+                                      ),
+                                      private = list(
+                                        .score = function(prediction, ...) {
+                                          truth <- prediction$truth
+                                          response <- prediction$response
+                                          
+                                          eps <- 1e-10
+                                          response <- pmax(response, eps)
+                                          log_term <- ifelse(truth == 0, 0, truth * log(truth / response))
+                                          2 * mean(log_term - (truth - response))
+                                        }
+                                      )
+)
+
+
 # Create and use the measure
 poisson_measure <- MeasurePoissonDeviance$new()
 mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
@@ -579,9 +609,9 @@ glmnet_learner$param_set$values$family <- "poisson"
 #glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
 
 reg.learner.list <- list(
-  #glmnet_learner,
-  #mlr3::LearnerRegrFeatureless$new(),
-  #LearnerRegrPLN$new(),
+  mlr3::LearnerRegrFeatureless$new(),
+  glmnet_learner,
+  LearnerRegrPLN$new(),
   LearnerRegrPLNGlmnet$new()
 )
 
