@@ -14,16 +14,6 @@ lasso_init_single <- function(Y, X, offset = NULL,
                               family = c("poisson", "gaussian"),
                               lambda_choice = "lambda.1se",
                               intercept = TRUE) {
-  ## Y         : numeric vector, counts of species C (length n)
-  ## X         : n × d matrix / data.frame of predictors (A and B)
-  ## offset    : numeric vector length n (log‑offset for C) or NULL
-  ## family    : "poisson" (default) or "gaussian" if you prefer the
-  ##             log‑count approximation
-  ## lambda_choice
-  ##   • character  – one of c("lambda.min", "lambda.1se") from cv.glmnet
-  ##   • numeric    – a user‑supplied λ
-  ## intercept : include intercept term inside glmnet?  Set FALSE if
-  ##             you have a column of 1’s in X or use an offset.
   family <- match.arg(family)
   
   ## run cross‑validated glmnet to pick a sensible λ
