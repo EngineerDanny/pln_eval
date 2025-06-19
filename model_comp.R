@@ -24,7 +24,7 @@ dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
 library(PLNmodels)
 
 task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/HMPv13_filtered.csv")
-task.dt <- task.dt[1:50]
+task.dt <- task.dt[1:100]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 
 task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
@@ -37,11 +37,10 @@ for (col_name in new_column_names) {
   reg.task <- mlr3::TaskRegr$new(
     task_id, task.dt, target=col_name
   )
-  reg.task$col_roles$subset <- "Group_ID"
-  reg.task$col_roles$stratum <- "Group_ID"
   reg.task$col_roles$feature <- setdiff(names(task.dt), c(task_id, "Group_ID"))
   task.list[[task_id]] <- reg.task
 }
+
 
 
 LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
@@ -317,20 +316,16 @@ glmnet_learner$param_set$values$var.power <- 1
 poisson_measure <- MeasurePoissonDeviance$new()
 mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
 
-#set.seed(4)
-# Then set up your learners with fallback
-#optimal_theta <- theta.ml(task.dt$Taxa4365684, mu = mean(task.dt$Taxa4365684))
-
 glmnet_learner <- mlr3learners::LearnerRegrCVGlmnet$new()
 glmnet_learner$param_set$values$alpha <- 1
 glmnet_learner$param_set$values$type.measure <- "deviance"
-#glmnet_learner$param_set$values$family <- "poisson"
+glmnet_learner$param_set$values$family <- "poisson"
 #glmnet_learner$fallback <- mlr3::LearnerRegrFeatureless$new()
 #glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
 
 reg.learner.list <- list(
-  #glmnet_learner,
-  #mlr3::LearnerRegrFeatureless$new(),
+  glmnet_learner,
+  mlr3::LearnerRegrFeatureless$new(),
   LearnerRegrPLN$new()
 )
 
@@ -361,13 +356,12 @@ future::plan("sequential")
 mycv <- mlr3resampling::ResamplingSameOtherSizesCV$new()
 mycv$param_set$values$subsets = "A"
 mycv$param_set$values$folds=5
-
 (reg.bench.grid <- mlr3::benchmark_grid(
   task.list,
   reg.learner.list,
   mycv))
 
-reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_17_reg"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_18_reg"
 reg <- batchtools::loadRegistry(reg.dir)
 unlink(reg.dir, recursive=TRUE)
 reg = batchtools::makeExperimentRegistry(
@@ -380,11 +374,11 @@ mlr3batchmark::batchmark(
 job.table <- batchtools::getJobTable(reg=reg)
 chunks <- data.frame(job.table, chunk=1)
 batchtools::submitJobs(chunks, resources=list(
-  walltime = 60*480,#seconds
+  walltime = 60*30,#seconds
   memory = 1024,#megabytes per cpu
   ncpus=1,  #>1 for multicore/parallel jobs.
   ntasks=1, #>1 for MPI jobs.
-  chunks.as.arrayjobs=TRUE), reg=reg)
+  chunks.as.arrayjobs=T), reg=reg)
 
 
 batchtools::getStatus(reg=reg)
@@ -392,5 +386,21 @@ batchtools::getStatus(reg=reg)
 jobs.after <- batchtools::getJobTable(reg=reg)
 table(jobs.after$error)
 jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
+
+
+
+ids <- jobs.after[is.na(error), job.id]
+bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
+score.dt <- mlr3resampling::score(bmr)
 save(bmr, file="/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13.RData")
 
+jobs.final <- batchtools::getJobTable(reg=reg)
+ids <- jobs.final[!is.na(done), job.id]
+bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
+score.dt <- mlr3resampling::score(bmr, poisson_measure)
+aggregate_results <- score.dt[, .(
+  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
+  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
+  n_iterations = .N
+), by = .(learner_id, train.subsets)]
+print(aggregate_results)
