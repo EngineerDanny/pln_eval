@@ -239,79 +239,6 @@ MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
 
 
 
-LearnerRegrTweedieGlmnet <- R6::R6Class("LearnerRegrTweedieGlmnet",
-                                    inherit = mlr3::LearnerRegr,
-                                    public = list(
-                                      initialize = function() {
-                                        ps <- ps(
-                                          alpha = p_dbl(lower = 0, upper = 1, default = 1, tags = "train"),
-                                          var.power = p_dbl(lower = 1, upper = 2, default = 1.5, tags = "train"),
-                                          link.power = p_dbl(default = 0, tags = "train"),
-                                          nfolds = p_int(lower = 3, default = 10, tags = "train"),
-                                          s = p_dbl(lower = 0, 
-                                                    special_vals = list("lambda.1se", "lambda.min"), 
-                                                    default = "lambda.1se", tags = "predict")
-                                        )
-                                        
-                                        super$initialize(
-                                          id = "regr.tweedie_glmnet",
-                                          param_set = ps,
-                                          feature_types = c("logical", "integer", "numeric"),
-                                          predict_types = "response",
-                                          packages = c("glmnet", "statmod"),
-                                          man = "custom::regr.tweedie_glmnet"
-                                        )
-                                      }
-                                    ),
-                                    
-                                    private = list(
-                                      .train = function(task) {
-                                        pv <- self$param_set$get_values(tags = "train")
-                                        
-                                        data <- as.matrix(task$data(cols = task$feature_names))
-                                        target <- task$data(cols = task$target_names)[[1]]
-                                        
-                                        # Create Tweedie family - use proper defaults
-                                        family_obj <- tweedie(
-                                          var.power = if (is.null(pv$var.power)) 1.5 else pv$var.power,
-                                          link.power = if (is.null(pv$link.power)) 0 else pv$link.power
-                                        )
-                                        #family_obj <- MASS::negative.binomial(theta = 1)
-                                        
-                                        # Remove Tweedie-specific parameters from pv
-                                        pv$var.power <- NULL
-                                        pv$link.power <- NULL
-                                        
-                                        invoke(cv.glmnet, 
-                                               x = data, 
-                                               y = target, 
-                                               family = family_obj,
-                                               type.measure = "deviance",
-                                           
-                                               nfolds = 5,
-                                               thresh = 1e-6,
-                                               lambda = exp(seq(log(0.1), log(0.001), length.out = 3)),
-                                               .args = pv)
-                                      },
-                                      
-                                      .predict = function(task) {
-                                        pv <- self$param_set$get_values(tags = "predict")
-                                        newdata <- as.matrix(task$data(cols = task$feature_names))
-                                        
-                                        s_value <- if (is.null(pv$s)) "lambda.min" else pv$s
-                                        p <- predict(self$model, newx = newdata, s = s_value)
-                                        list(response = as.numeric(p))
-                                      }
-                                    )
-)
-# Register the learner
-mlr_learners$add("regr.tweedie_glmnet", LearnerRegrTweedieGlmnet)
-glmnet_learner <- lrn("regr.tweedie_glmnet")
-glmnet_learner$param_set$values$alpha <- 1
-glmnet_learner$param_set$values$var.power <- 1
-
-
-
 # Create and use the measure
 poisson_measure <- MeasurePoissonDeviance$new()
 mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
@@ -331,17 +258,17 @@ reg.learner.list <- list(
 
 
 ### For debugging
-debug_cv <- mlr3resampling::ResamplingSameOtherSizesCV$new()
-debug_cv$param_set$values$subsets = "A"
-debug_cv$param_set$values$folds=5
+debug_cv <- mlr3::ResamplingCV$new()
+debug_cv$param_set$values$folds <- 5
 debug.grid <- mlr3::benchmark_grid(
   task.list["Taxa4365684"],
   reg.learner.list,
   debug_cv
 )
 debug.result <- mlr3::benchmark(debug.grid)
-debug.score.dt <- mlr3resampling::score(debug.result, poisson_measure)
-#debug.score.dt <- mlr3resampling::score(debug.result, mlr3::msr("regr.rmse"))
+
+debug.score.dt <- debug.result$score(poisson_measure)
+#debug.score.dt <- debug.result$score(mlr3::msr("regr.rmse"))
 aggregate_results <- debug.score.dt[, .(
   mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
   sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
@@ -353,15 +280,14 @@ print(aggregate_results)
 
 ### For parallel real tests
 future::plan("sequential")
-mycv <- mlr3resampling::ResamplingSameOtherSizesCV$new()
-mycv$param_set$values$subsets = "A"
+mycv <- mlr3::ResamplingCV$new()
 mycv$param_set$values$folds=5
 (reg.bench.grid <- mlr3::benchmark_grid(
   task.list,
   reg.learner.list,
   mycv))
 
-reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_18_reg"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_19_reg"
 reg <- batchtools::loadRegistry(reg.dir)
 unlink(reg.dir, recursive=TRUE)
 reg = batchtools::makeExperimentRegistry(
