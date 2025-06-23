@@ -9,12 +9,13 @@ library(ggplot2)
 library(MASS)
 library(broom)
 library(statmod)
-library(mlr3resampling)
 library(torch)
+library(batchtools)
+library(igraph)
+library(rlang)
 
-
-
-Sys.setenv(LD_LIBRARY_PATH = "/packages/anaconda3/2024.02/lib")
+#Sys.setenv(LD_LIBRARY_PATH = "/packages/anaconda3/2024.02/lib")
+#Sys.setenv(R_LIBS_USER = "/projects/genomic-ml/da2343/PLN/pln_eval/myRenv/lib/R/library")
 
 # If TRUE, load them directly:
 dyn.load("/packages/anaconda3/2024.02/lib/libicui18n.so.73")
@@ -23,8 +24,8 @@ dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
 
 library(PLNmodels)
 
-task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/HMPv13_filtered.csv")
-task.dt <- task.dt[1:100]
+task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/TwinsUK_filtered.csv")
+#task.dt <- task.dt[1:100]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 
 task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
@@ -91,15 +92,13 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                               pln_data <- PLNmodels::prepare_data(
                                 counts = abundance_matrix, 
                                 covariates = covariates,
-                                offset = pv$offset_scheme %||% "TSS"
+                                offset = "TSS"
                               )
                               
                               # Set up PLN control parameters
                               control_params <- PLNmodels::PLN_param(
-                                covariance = pv$covariance %||% "full",
-                                trace = pv$trace %||% 0,
-                                backend = pv$backend %||% "torch"
-                                #backend = pv$backend %||% "nlopt"
+                                covariance = "full",
+                                backend = "nlopt"
                               )
                               
                               # Fit PLN model on prepared data
@@ -153,7 +152,7 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                                 test_pln_data <- PLNmodels::prepare_data(
                                   counts = non_empty_abundance,
                                   covariates = test_covariates,
-                                  offset = self$model$pv$offset_scheme %||% "TSS"
+                                  offset = "TSS"
                                 )
                                 
                                 # For conditional prediction:
@@ -251,32 +250,29 @@ glmnet_learner$param_set$values$family <- "poisson"
 #glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
 
 reg.learner.list <- list(
-  glmnet_learner,
   mlr3::LearnerRegrFeatureless$new(),
+  glmnet_learner,
   LearnerRegrPLN$new()
 )
 
 
 ### For debugging
-debug_cv <- mlr3::ResamplingCV$new()
-debug_cv$param_set$values$folds <- 5
-debug.grid <- mlr3::benchmark_grid(
-  task.list["Taxa4365684"],
-  reg.learner.list,
-  debug_cv
-)
-debug.result <- mlr3::benchmark(debug.grid)
-
-debug.score.dt <- debug.result$score(poisson_measure)
+#debug_cv <- mlr3::ResamplingCV$new()
+#debug_cv$param_set$values$folds <- 5
+#debug.grid <- mlr3::benchmark_grid(
+#  task.list["Taxa4365684"],
+#  reg.learner.list,
+#  debug_cv
+#)
+#debug.result <- mlr3::benchmark(debug.grid)
+#debug.score.dt <- debug.result$score(poisson_measure)
 #debug.score.dt <- debug.result$score(mlr3::msr("regr.rmse"))
-aggregate_results <- debug.score.dt[, .(
-  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
-  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
-  n_iterations = .N
-), by = .(learner_id, train.subsets)]
-print(aggregate_results)
-
-
+#aggregate_results <- debug.score.dt[, .(
+#  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
+#  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
+#  n_iterations = .N
+#), by = .(learner_id)]
+#print(aggregate_results)
 
 ### For parallel real tests
 future::plan("sequential")
@@ -287,46 +283,79 @@ mycv$param_set$values$folds=5
   reg.learner.list,
   mycv))
 
-reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_19_reg"
-reg <- batchtools::loadRegistry(reg.dir)
+#reg.dir <- "/scratch/da2343/hmpv13_06_20_reg"
+#reg.dir <- "/scratch/da2343/hmpv35_06_20_reg"
+#reg.dir <- "/scratch/da2343/amgut1_06_20_reg"
+#reg.dir <- "/scratch/da2343/amgut2_06_20_reg"
+#reg.dir <- "/scratch/da2343/baxter_crc_06_22_reg"
+#reg.dir <- "/scratch/da2343/crohns_06_22_reg"
+#reg.dir <- "/scratch/da2343/glne007_06_22_reg"
+#reg.dir <- "/scratch/da2343/hmp2prot_06_22_reg"
+#reg.dir <- "/scratch/da2343/hmp216S_06_22_reg"
+#reg.dir <- "/scratch/da2343/ioral_06_22_reg"
+#reg.dir <- "/scratch/da2343/mixmpln_06_22_reg"
+#reg.dir <- "/scratch/da2343/soilrep_06_22_reg"
+#*reg.dir <- "/scratch/da2343/MovingPictures_06_22_reg"
+#reg.dir <- "/scratch/da2343/qa10394_06_22_reg"
+reg.dir <- "/scratch/da2343/TwinsUK_06_22_reg"
+if (dir.exists(reg.dir)) {
+  reg <- batchtools::loadRegistry(reg.dir,  writeable = TRUE)
+} else {
+  reg <- batchtools::makeRegistry(reg.dir)
+}
 unlink(reg.dir, recursive=TRUE)
+
+
+
+
+conda_lib_path <- "/projects/genomic-ml/da2343/PLN/pln_eval/myRenv/lib/R/library"
+# Create worker setup script programmatically
+worker_setup_content <- sprintf('
+.libPaths("%s")
+Sys.setenv(R_LIBS_USER = "%s")
+', conda_lib_path, conda_lib_path)
+writeLines(worker_setup_content, "worker_setup.R")
+
 reg = batchtools::makeExperimentRegistry(
   file.dir = reg.dir,
   seed = 1,
-  packages = "mlr3verse"
+  packages = c("mlr3verse", "batchtools", "data.table", "PLNmodels"),
+  source = "worker_setup.R"
 )
 mlr3batchmark::batchmark(
   reg.bench.grid, store_models = TRUE, reg=reg)
 job.table <- batchtools::getJobTable(reg=reg)
 chunks <- data.frame(job.table, chunk=1)
 batchtools::submitJobs(chunks, resources=list(
-  walltime = 60*30,#seconds
+  walltime = 60*60*5,#seconds
   memory = 1024,#megabytes per cpu
   ncpus=1,  #>1 for multicore/parallel jobs.
   ntasks=1, #>1 for MPI jobs.
+ nodelist = "cn69", #"cn41" 
+ #constraint = "bw",
   chunks.as.arrayjobs=T), reg=reg)
 
-
-batchtools::getStatus(reg=reg)
+#batchtools::getStatus(reg=reg)
 #batchtools::killJobs(reg=reg)
-jobs.after <- batchtools::getJobTable(reg=reg)
-table(jobs.after$error)
-jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
+#jobs.after <- batchtools::getJobTable(reg=reg)
+#table(jobs.after$error)
+#jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
+
+#ids <- jobs.after[is.na(error), job.id]
+#bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
+#score.dt <- bmr$score(poisson_measure)
+#save(bmr, file="/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_20.RData")
 
 
 
-ids <- jobs.after[is.na(error), job.id]
-bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
-score.dt <- mlr3resampling::score(bmr)
-save(bmr, file="/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13.RData")
 
-jobs.final <- batchtools::getJobTable(reg=reg)
-ids <- jobs.final[!is.na(done), job.id]
-bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
-score.dt <- mlr3resampling::score(bmr, poisson_measure)
-aggregate_results <- score.dt[, .(
-  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
-  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
-  n_iterations = .N
-), by = .(learner_id, train.subsets)]
-print(aggregate_results)
+#jobs.final <- batchtools::getJobTable(reg=reg)
+#ids <- jobs.final[!is.na(done), job.id]
+#bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
+#score.dt <- mlr3resampling::score(bmr, poisson_measure)
+#aggregate_results <- score.dt[, .(
+#  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
+#  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
+#  n_iterations = .N
+#), by = .(learner_id)]
+#print(aggregate_results)
