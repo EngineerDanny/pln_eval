@@ -24,7 +24,7 @@ dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
 
 library(PLNmodels)
 
-task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/TwinsUK_filtered.csv")
+task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/MovingPictures_filtered.csv")
 #task.dt <- task.dt[1:100]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 
@@ -297,7 +297,8 @@ mycv$param_set$values$folds=5
 #reg.dir <- "/scratch/da2343/soilrep_06_22_reg"
 #*reg.dir <- "/scratch/da2343/MovingPictures_06_22_reg"
 #reg.dir <- "/scratch/da2343/qa10394_06_22_reg"
-reg.dir <- "/scratch/da2343/TwinsUK_06_22_reg"
+#reg.dir <- "/scratch/da2343/TwinsUK_06_22_reg"
+reg.dir <- "/scratch/da2343/MovingPictures_06_22_reg"
 if (dir.exists(reg.dir)) {
   reg <- batchtools::loadRegistry(reg.dir,  writeable = TRUE)
 } else {
@@ -331,31 +332,7 @@ batchtools::submitJobs(chunks, resources=list(
   memory = 1024,#megabytes per cpu
   ncpus=1,  #>1 for multicore/parallel jobs.
   ntasks=1, #>1 for MPI jobs.
- nodelist = "cn69", #"cn41" 
+  nodelist = "cn69", #"cn41" 
  #constraint = "bw",
   chunks.as.arrayjobs=T), reg=reg)
 
-#batchtools::getStatus(reg=reg)
-#batchtools::killJobs(reg=reg)
-#jobs.after <- batchtools::getJobTable(reg=reg)
-#table(jobs.after$error)
-#jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
-
-#ids <- jobs.after[is.na(error), job.id]
-#bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
-#score.dt <- bmr$score(poisson_measure)
-#save(bmr, file="/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_20.RData")
-
-
-
-
-#jobs.final <- batchtools::getJobTable(reg=reg)
-#ids <- jobs.final[!is.na(done), job.id]
-#bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
-#score.dt <- mlr3resampling::score(bmr, poisson_measure)
-#aggregate_results <- score.dt[, .(
-#  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
-#  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
-#  n_iterations = .N
-#), by = .(learner_id)]
-#print(aggregate_results)
