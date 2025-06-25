@@ -24,7 +24,7 @@ dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
 
 library(PLNmodels)
 
-task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/MovingPictures_filtered.csv")
+task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/amgut1_update.csv")
 #task.dt <- task.dt[1:100]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 
@@ -242,19 +242,27 @@ MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
 poisson_measure <- MeasurePoissonDeviance$new()
 mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
 
-glmnet_learner <- mlr3learners::LearnerRegrCVGlmnet$new()
-glmnet_learner$param_set$values$alpha <- 1
-glmnet_learner$param_set$values$type.measure <- "deviance"
-glmnet_learner$param_set$values$family <- "poisson"
-#glmnet_learner$fallback <- mlr3::LearnerRegrFeatureless$new()
-#glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
+glmnet_learner_poisson <- mlr3learners::LearnerRegrCVGlmnet$new()
+glmnet_learner_poisson$param_set$values$alpha <- 1
+glmnet_learner_poisson$param_set$values$type.measure <- "deviance"
+glmnet_learner_poisson$param_set$values$family <- "poisson"
+glmnet_learner_poisson$id <- "regr.glmnet_poisson"
+
+glmnet_learner_gaussian <- mlr3learners::LearnerRegrCVGlmnet$new()
+glmnet_learner_gaussian$param_set$values$alpha <- 1
+glmnet_learner_gaussian$param_set$values$type.measure <- "mse"
+glmnet_learner_gaussian$param_set$values$family <- "gaussian"
+glmnet_learner_gaussian$id <- "regr.glmnet_gaussian"
 
 reg.learner.list <- list(
   mlr3::LearnerRegrFeatureless$new(),
-  glmnet_learner,
+  glmnet_learner_poisson,
+  glmnet_learner_gaussian,
   LearnerRegrPLN$new()
 )
 
+#glmnet_learner$fallback <- mlr3::LearnerRegrFeatureless$new()
+#glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
 
 ### For debugging
 #debug_cv <- mlr3::ResamplingCV$new()
@@ -295,10 +303,12 @@ mycv$param_set$values$folds=5
 #reg.dir <- "/scratch/da2343/ioral_06_22_reg"
 #reg.dir <- "/scratch/da2343/mixmpln_06_22_reg"
 #reg.dir <- "/scratch/da2343/soilrep_06_22_reg"
-#*reg.dir <- "/scratch/da2343/MovingPictures_06_22_reg"
+
 #reg.dir <- "/scratch/da2343/qa10394_06_22_reg"
 #reg.dir <- "/scratch/da2343/TwinsUK_06_22_reg"
-reg.dir <- "/scratch/da2343/MovingPictures_06_22_reg"
+#reg.dir <- "/scratch/da2343/MovingPictures_06_22_reg"
+
+reg.dir <- "/scratch/da2343/amgut1_06_25_reg"
 if (dir.exists(reg.dir)) {
   reg <- batchtools::loadRegistry(reg.dir,  writeable = TRUE)
 } else {
@@ -324,7 +334,7 @@ reg = batchtools::makeExperimentRegistry(
   source = "worker_setup.R"
 )
 mlr3batchmark::batchmark(
-  reg.bench.grid, store_models = TRUE, reg=reg)
+  reg.bench.grid, store_models = FALSE, reg=reg)
 job.table <- batchtools::getJobTable(reg=reg)
 chunks <- data.frame(job.table, chunk=1)
 batchtools::submitJobs(chunks, resources=list(
@@ -332,7 +342,31 @@ batchtools::submitJobs(chunks, resources=list(
   memory = 1024,#megabytes per cpu
   ncpus=1,  #>1 for multicore/parallel jobs.
   ntasks=1, #>1 for MPI jobs.
-  nodelist = "cn69", #"cn41" 
+  #nodelist = "cn69", #"cn41" 
  #constraint = "bw",
   chunks.as.arrayjobs=T), reg=reg)
 
+
+#batchtools::getStatus(reg=reg)
+#batchtools::killJobs(reg=reg)
+#jobs.after <- batchtools::getJobTable(reg=reg)
+#table(jobs.after$error)
+#jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
+
+#ids <- jobs.after[is.na(error), job.id]
+#bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
+#score.dt <- bmr$score(poisson_measure)
+#save(bmr, file="/projects/genomic-ml/da2343/PLN/pln_eval/out/hmpv13_06_20.RData")
+
+
+
+#jobs.final <- batchtools::getJobTable(reg=reg)
+#ids <- jobs.final[!is.na(done), job.id]
+#bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
+#score.dt <- mlr3resampling::score(bmr, poisson_measure)
+#aggregate_results <- score.dt[, .(
+#  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
+#  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
+#  n_iterations = .N
+#), by = .(learner_id)]
+#print(aggregate_results)
