@@ -1,60 +1,61 @@
-
-library(PLNmodels)   # ≥ 1.1.0
-library(glmnet)      # ≥ 4.1‑x
-
-# ===================================================================
-# 1.  LASSO‑INITIALISED PLN  (single response)
-# ===================================================================
-# Fits one Poisson‑ or Gaussian‑Lasso on C ~ A + B to obtain a sparse
-# coefficient vector b_init (length = 2).  Then hands that vector to
-# PLN as the starting value for B.
-# -------------------------------------------------------------------
-
-lasso_init_single <- function(Y, X, offset = NULL,
-                              family = c("poisson", "gaussian"),
-                              lambda_choice = "lambda.1se",
-                              intercept = TRUE) {
-  family <- match.arg(family)
+compute_PLN_starting_point <- function(Y, X, O, w, s = 0.1, use_glmnet = F) {
+  n <- nrow(Y); p <- ncol(Y); d <- ncol(X)
   
-  ## run cross‑validated glmnet to pick a sensible λ
-  cvfit <- cv.glmnet(x = as.matrix(X),
-                     y = if (family == "gaussian") log1p(Y) else Y,
-                     family = family,
-                     alpha  = 1,              # pure Lasso
-                     offset = offset,
-                     intercept = intercept)
+  if (use_glmnet && requireNamespace("glmnet", quietly = TRUE)) {
+    Y_transformed <- log((1 + Y) / exp(O))
+    X_weighted <- sqrt(w) * X
+    
+    # Initialize coefficient matrix - ensure correct dimensions
+    B <- matrix(0, nrow = d, ncol = p)
+    
+    for (j in 1:p) {
+      y_j_weighted <- sqrt(w) * Y_transformed[, j]
+      
+      cv_fit <- cv.glmnet(
+        x = X_weighted,
+        y = y_j_weighted,
+        family = "gaussian",
+        alpha = 1,
+        standardize = TRUE,
+        intercept = FALSE  # Match original approach
+      )
+      
+      # Extract coefficients correctly - exclude intercept
+      coefs <- as.vector(coef(cv_fit, s = "lambda.min"))[-1]  # Remove intercept
+      B[, j] <- coefs
+    }
+    
+    # Use weighted prediction for consistency
+    fits_pred <- X_weighted %*% B
+    residuals_matrix <- Y_transformed - fits_pred / sqrt(w)  # Adjust for weighting
+    
+  } else {
+    fits <- lm.fit(w * X, w * log((1 + Y)/exp(O)))
+    B <- matrix(fits$coefficients, d, p)
+    residuals_matrix <- matrix(fits$residuals, n, p)
+  }
   
-  ## extract coefficients at requested λ
-  s <- if (is.character(lambda_choice)) cvfit[[lambda_choice]] else lambda_choice
-  beta_hat <- as.numeric(coef(cvfit, s = s))[-1L]   # drop intercept
-  beta_hat
+  list(
+    B = B,
+    M = residuals_matrix,
+    S = matrix(s, n, p)
+  )
 }
 
-# --------------------------
-# Example minimal workflow  |
-# --------------------------
-# Suppose `counts` is an n × 3 data.frame named A, B, C
-counts  <- data.frame(A = rpois(30, 10),
-                       B = rpois(30, 15), 
-                      C = rpois(30, 20))
-offsetC <- log(rowSums(counts))  # (optional) library size offset
-#
-X_mat   <- as.matrix(counts[, c("A", "B")])
-Y_vec   <- counts$C
-#
-# ## 1‑a  Get sparse start
-b0 <- lasso_init_single(Y_vec, X_mat, offset = offsetC,
-                         family = "poisson", lambda_choice = "lambda.1se",
-                         intercept = FALSE)
-#
-# ## 1‑b  Wrap into PLN
-ctrl <- PLN_param()
-ctrl$inception <- list(B = matrix(b0, nrow = ncol(X_mat)))
-#
-fit_LassoInit <- PLN(C ~ A + B + offset(offsetC),
-                      data    = counts,
-                      control = ctrl)
 
-fit_LassoInit
-beta_final <- coef(fit_LassoInit)  
-beta_final
+set.seed(123)
+n <- 50; p <- 3; d <- 2
+
+# Create true relationships
+B_true <- matrix(c(0.5, -0.3, 0.2, 0.1, -0.4, 0.6), nrow = d, ncol = p)
+X <- matrix(rnorm(n * d), nrow = n, ncol = d)
+linear_pred <- X %*% B_true
+Y <- matrix(rpois(n * p, lambda = exp(linear_pred)), nrow = n, ncol = p)
+O <- matrix(0, nrow = n, ncol = p)
+w <- rep(1, n)
+
+result <- PLNmodels::compute_PLN_starting_point(Y, X, O, w, s = 0.1)
+print("True B:")
+print(B_true)
+print("Estimated B:")
+print(result$B)

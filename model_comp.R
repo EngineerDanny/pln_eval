@@ -91,7 +91,6 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                                 backend = "torch"
                               )
                               
-
                               
                               # Fit PLN model on prepared data
                               pln_model <- PLN(Abundance ~ 1, data = pln_data, control = control_params)
