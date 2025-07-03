@@ -15,15 +15,13 @@ library(PLNmodels)
 
 source("~/Projects/pln_eval/load_source.R")
 task.dt <- data.table::fread("~/Projects/pln_eval/data/HMPv13_filtered.csv")
-task.dt <- task.dt[1:50, 1:100]
+task.dt <- task.dt[1:10, 1:150]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 
 # Apply log1p transformation to all abundance columns
 task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
 new_column_names <- paste0("Taxa", taxa_columns)
 setnames(task.dt, old = taxa_columns, new = new_column_names)
-
-
 
 task.list <- list()
 for (col_name in new_column_names) {
@@ -46,17 +44,11 @@ cv_glmnet_learner$param_set$values$type.measure <- "deviance"
 cv_glmnet_learner$param_set$values$family <- "poisson"
 
 
-glmnet_learner <- mlr3learners::LearnerRegrGlmnet$new()
-glmnet_learner$param_set$values$alpha <- 1
-glmnet_learner$param_set$values$family <- "poisson"
-#glmnet_learner$fallback <- mlr3::LearnerRegrFeatureless$new()
-#glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
-
 reg.learner.list <- list(
   mlr3::LearnerRegrFeatureless$new(),
   cv_glmnet_learner,
-  LearnerRegrCVPLN$new(),
-  LearnerRegrPLN$new()
+  LearnerRegrCVPLN$new()
+  #LearnerRegrPLN$new()
 )
 
 ## For debugging
@@ -68,8 +60,6 @@ debug.grid <- mlr3::benchmark_grid(
   debug_cv
 )
 debug.result <- mlr3::benchmark(debug.grid)
-
-debug.result
 
 debug.score.dt <- debug.result$score(poisson_measure)
 aggregate_results <- debug.score.dt[, .(
