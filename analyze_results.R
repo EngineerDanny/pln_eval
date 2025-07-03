@@ -14,12 +14,15 @@ reg.dir <- "/scratch/da2343/mixmpln_06_22_reg"
 #reg.dir <- "/scratch/da2343/qa10394_06_22_reg"
 #reg.dir <- "/scratch/da2343/TwinsUK_06_22_reg"
 
+reg.dir <- "/scratch/da2343/amgut1_06_25_reg"
+
 reg <- batchtools::loadRegistry(reg.dir, writeable = TRUE)
 jobs.after <- batchtools::getJobTable(reg=reg)
 table(jobs.after$error)
 jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
 ids <- jobs.after[is.na(error), job.id]
 
+if(T){
 bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg, store_backends = FALSE)
 score.dt.poisson <- bmr$score(poisson_measure)
 score.dt.rmse <- bmr$score(msr("regr.rmse"))
@@ -28,7 +31,9 @@ plot_data <- merge(
   score.dt.rmse[, .(task_id, learner_id, iteration, regr.rmse)],
   by = c("task_id", "learner_id", "iteration")
 )
-
+}else{
 plot_data <- extract_scores_directly(ids, reg, jobs.after)
+}
 
-data.table::fwrite(plot_data, "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/mixmpln.csv")
+
+data.table::fwrite(plot_data, "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/amgut1_06_25_reg.csv")

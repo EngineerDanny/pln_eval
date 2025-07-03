@@ -4,6 +4,8 @@ library(ggplot2)
 
 datanames <- c( "amgut2_06_20", "ioral_06_22","baxter_crc_06_22", 
                 "amgut1_06_20", "hmpv35_06_20", "mixmpln_06_22")
+
+datanames <- c( "crohns_06_22", "amgut1_06_20", "hmpv35_06_20")
 plot_data_list <- list()
 for(i in 1:length(datanames)) {
   temp_data <- fread(paste0("/projects/genomic-ml/da2343/PLN/pln_eval/data/plot_data/", datanames[i], ".csv"))
@@ -13,7 +15,7 @@ for(i in 1:length(datanames)) {
 plot_data <- rbindlist(plot_data_list)
 plot_data[, algorithm := fcase(
   learner_id == "regr.featureless", "Featureless",
-  learner_id == "regr.cv_glmnet", "GLMNet",
+  learner_id == "regr.cv_glmnet", "GLMNet (Poisson)",
   learner_id == "regr.pln", "PLN"
 )]
 score_summary <- plot_data[, .(
@@ -38,7 +40,7 @@ for(ds in datanames) {
       t_result <- t.test(alg_values, baseline_values, paired = FALSE)
     }
     
-    clean_alg <- ifelse(alg == "regr.cv_glmnet", "GLMNet", "PLN")
+    clean_alg <- ifelse(alg == "regr.cv_glmnet", "GLMNet (Poisson)", "PLN")
     
     p_values <- rbind(p_values, data.table(
       algorithm = clean_alg,
@@ -63,7 +65,7 @@ score_summary[, p_value_label := fcase(
   p_value < 0.05, "p < 0.05",
   default = paste0("p = ", round(p_value, 3))
 )]
-algorithm_order <- c("Featureless", "GLMNet", "PLN")
+algorithm_order <- c("Featureless", "GLMNet (Poisson)", "PLN")
 score_summary$algorithm <- factor(score_summary$algorithm, levels = algorithm_order)
 score_summary[, is_pln := algorithm == "PLN"]
 gg <- ggplot(score_summary, aes(x = mean_deviance, y = algorithm)) +
@@ -79,7 +81,8 @@ gg <- ggplot(score_summary, aes(x = mean_deviance, y = algorithm)) +
                      labels = c("Other Methods", "PLN")) +
   facet_wrap(~ dataset_clean, nrow = 2, ncol = 3) +
   labs(
-    title = "PLN Shows Consistent Superior Performance Across Datasets",
+    #title = "PLN Shows Consistent Superior Performance Across Datasets",
+    title = "GLMNet marginally outperforms PLN",
     x = "Mean Poisson Deviance (95% CI)",
     y = "Algorithm"
   ) +
@@ -92,8 +95,9 @@ gg <- ggplot(score_summary, aes(x = mean_deviance, y = algorithm)) +
     panel.grid.minor = element_blank(),
     legend.position = "none"
   )
-ggsave("/projects/genomic-ml/da2343/PLN/pln_eval/out/multi_dataset_bmr.png",
+ggsave("/projects/genomic-ml/da2343/PLN/pln_eval/out/2_bmr.png",
        plot = gg,
        width = 8, 
-       height = 4,
+       #height = 4,
+       height = 3,
        dpi = 300)
