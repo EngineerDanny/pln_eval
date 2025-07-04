@@ -4,3 +4,11 @@
 *.RData
 *.jpg
 *.jpeg
+*.rds
+logs
+jobs
+myRenv
+environment.yml
+.Rprofile
+worker_setup.R
+.Renviron
