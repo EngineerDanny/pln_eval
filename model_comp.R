@@ -9,18 +9,21 @@ library(ggplot2)
 library(MASS)
 library(broom)
 library(statmod)
+library(mlr3resampling)
 library(torch)
 library(batchtools)
 library(igraph)
 library(rlang)
-
+library(PLNmodels)
 
 #dyn.load("/packages/anaconda3/2024.02/lib/libicui18n.so.73")
 #dyn.load("/packages/anaconda3/2024.02/lib/libicuuc.so.73") 
 #dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
 
-library(PLNmodels)
 
+
+source("~/Projects/pln_eval/load_source.R")
+#task.dt <- data.table::fread("~/Projects/pln_eval/data/HMPv13_filtered.csv")
 task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/HMPv13_filtered.csv")
 task.dt <- task.dt[1:20,1:100]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
@@ -235,15 +238,15 @@ MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
 
 
 
+
 # Create and use the measure
 poisson_measure <- MeasurePoissonDeviance$new()
 mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
 
-glmnet_learner_poisson <- mlr3learners::LearnerRegrCVGlmnet$new()
-glmnet_learner_poisson$param_set$values$alpha <- 1
-glmnet_learner_poisson$param_set$values$type.measure <- "deviance"
-glmnet_learner_poisson$param_set$values$family <- "poisson"
-glmnet_learner_poisson$id <- "regr.glmnet_poisson"
+cv_glmnet_learner <- mlr3learners::LearnerRegrCVGlmnet$new()
+cv_glmnet_learner$param_set$values$alpha <- 1
+cv_glmnet_learner$param_set$values$type.measure <- "deviance"
+cv_glmnet_learner$param_set$values$family <- "poisson"
 
 #glmnet_learner_gaussian <- mlr3learners::LearnerRegrCVGlmnet$new()
 #glmnet_learner_gaussian$param_set$values$alpha <- 1
@@ -251,12 +254,16 @@ glmnet_learner_poisson$id <- "regr.glmnet_poisson"
 #glmnet_learner_gaussian$param_set$values$family <- "gaussian"
 #glmnet_learner_gaussian$id <- "regr.glmnet_gaussian"
 
+plnpca_learner <- LearnerRegrPLNPCA$new()
+#plnpca_learner$param_set$rho <- 0.01
 reg.learner.list <- list(
   mlr3::LearnerRegrFeatureless$new(),
-  glmnet_learner_poisson,
-  #glmnet_learner_gaussian,
-  LearnerRegrPLN$new()
+  cv_glmnet_learner,
+  LearnerRegrPLN$new(),
+  #LearnerRegrCVPLN$new()
+  plnpca_learner
 )
+
 
 #glmnet_learner$fallback <- mlr3::LearnerRegrFeatureless$new()
 #glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
@@ -265,18 +272,45 @@ reg.learner.list <- list(
 debug_cv <- mlr3::ResamplingCV$new()
 debug_cv$param_set$values$folds <- 5
 debug.grid <- mlr3::benchmark_grid(
-  task.list["Taxa4365684"],
+  task.list["Taxa799024"],
   reg.learner.list,
   debug_cv
 )
 debug.result <- mlr3::benchmark(debug.grid)
 debug.score.dt <- debug.result$score(poisson_measure)
 #debug.score.dt <- debug.result$score(mlr3::msr("regr.rmse"))
+
 aggregate_results <- debug.score.dt[, .(
-  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
-  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
+  mean_deviance =mean(regr.poisson_deviance)  ,
+  sd_deviance = sd(regr.poisson_deviance ) ,
   n_iterations = .N
 ), by = .(learner_id)]
+
+
+print(aggregate_results)
+
+
+
+# Set up cross-validation
+mycv <- mlr3::ResamplingCV$new()
+mycv$param_set$values$folds <- 3
+reg.bench.grid <- mlr3::benchmark_grid(
+  tasks = task.list,
+  learners = reg.learner.list,
+  resamplings = mycv
+)
+bmr <- mlr3::benchmark(reg.bench.grid)
+results <- bmr$score(poisson_measure)
+# Save results
+save(bmr, file= paste0("~/Projects/pln_eval/data/", dataname, "_corr_benchmark.RData") )
+# Extract only the simple columns for CSV export
+results_clean <- results[, .(
+  task_id, 
+  learner_id, 
+  iteration,
+  regr.poisson_deviance
+)]
+write.csv(results_clean, paste0("~/Projects/pln_eval/data/", dataname, "_corr_benchmark.csv"), row.names = FALSE)
 print(aggregate_results)
 
 ### For parallel real tests
