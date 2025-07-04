@@ -14,24 +14,20 @@ library(batchtools)
 library(igraph)
 library(rlang)
 
-#Sys.setenv(LD_LIBRARY_PATH = "/packages/anaconda3/2024.02/lib")
-#Sys.setenv(R_LIBS_USER = "/projects/genomic-ml/da2343/PLN/pln_eval/myRenv/lib/R/library")
 
-# If TRUE, load them directly:
-dyn.load("/packages/anaconda3/2024.02/lib/libicui18n.so.73")
-dyn.load("/packages/anaconda3/2024.02/lib/libicuuc.so.73") 
-dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
+#dyn.load("/packages/anaconda3/2024.02/lib/libicui18n.so.73")
+#dyn.load("/packages/anaconda3/2024.02/lib/libicuuc.so.73") 
+#dyn.load("/packages/anaconda3/2024.02/lib/libicudata.so.73")
 
 library(PLNmodels)
 
-task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/amgut1_update.csv")
-#task.dt <- task.dt[1:100]
+task.dt <- data.table::fread("/projects/genomic-ml/da2343/PLN/pln_eval/data/HMPv13_filtered.csv")
+task.dt <- task.dt[1:20,1:100]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
-
 task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
 
 new_column_names <- paste0("Taxa", taxa_columns)
-setnames(task.dt, old = taxa_columns, new = new_column_names)
+data.table::setnames(task.dt, old = taxa_columns, new = new_column_names)
 task.list <- list()
 for (col_name in new_column_names) {
   task_id <- col_name
@@ -98,7 +94,8 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                               # Set up PLN control parameters
                               control_params <- PLNmodels::PLN_param(
                                 covariance = "full",
-                                backend = "nlopt"
+                                #backend = "nlopt"
+                                backend = "torch"
                               )
                               
                               # Fit PLN model on prepared data
@@ -248,16 +245,16 @@ glmnet_learner_poisson$param_set$values$type.measure <- "deviance"
 glmnet_learner_poisson$param_set$values$family <- "poisson"
 glmnet_learner_poisson$id <- "regr.glmnet_poisson"
 
-glmnet_learner_gaussian <- mlr3learners::LearnerRegrCVGlmnet$new()
-glmnet_learner_gaussian$param_set$values$alpha <- 1
-glmnet_learner_gaussian$param_set$values$type.measure <- "mse"
-glmnet_learner_gaussian$param_set$values$family <- "gaussian"
-glmnet_learner_gaussian$id <- "regr.glmnet_gaussian"
+#glmnet_learner_gaussian <- mlr3learners::LearnerRegrCVGlmnet$new()
+#glmnet_learner_gaussian$param_set$values$alpha <- 1
+#glmnet_learner_gaussian$param_set$values$type.measure <- "mse"
+#glmnet_learner_gaussian$param_set$values$family <- "gaussian"
+#glmnet_learner_gaussian$id <- "regr.glmnet_gaussian"
 
 reg.learner.list <- list(
   mlr3::LearnerRegrFeatureless$new(),
   glmnet_learner_poisson,
-  glmnet_learner_gaussian,
+  #glmnet_learner_gaussian,
   LearnerRegrPLN$new()
 )
 
@@ -265,22 +262,22 @@ reg.learner.list <- list(
 #glmnet_learner$encapsulate <- c(train = "evaluate", predict = "evaluate")
 
 ### For debugging
-#debug_cv <- mlr3::ResamplingCV$new()
-#debug_cv$param_set$values$folds <- 5
-#debug.grid <- mlr3::benchmark_grid(
-#  task.list["Taxa4365684"],
-#  reg.learner.list,
-#  debug_cv
-#)
-#debug.result <- mlr3::benchmark(debug.grid)
-#debug.score.dt <- debug.result$score(poisson_measure)
+debug_cv <- mlr3::ResamplingCV$new()
+debug_cv$param_set$values$folds <- 5
+debug.grid <- mlr3::benchmark_grid(
+  task.list["Taxa4365684"],
+  reg.learner.list,
+  debug_cv
+)
+debug.result <- mlr3::benchmark(debug.grid)
+debug.score.dt <- debug.result$score(poisson_measure)
 #debug.score.dt <- debug.result$score(mlr3::msr("regr.rmse"))
-#aggregate_results <- debug.score.dt[, .(
-#  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
-#  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
-#  n_iterations = .N
-#), by = .(learner_id)]
-#print(aggregate_results)
+aggregate_results <- debug.score.dt[, .(
+  mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),
+  sd_deviance = sd( regr.poisson_deviance , na.rm = TRUE),
+  n_iterations = .N
+), by = .(learner_id)]
+print(aggregate_results)
 
 ### For parallel real tests
 future::plan("sequential")
