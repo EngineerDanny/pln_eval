@@ -181,13 +181,12 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                               )
 )
 
-LearnerRegrCVPLN <- R6::R6Class("LearnerRegrCVPLN",
+LearnerRegrPLNnetwork <- R6::R6Class("LearnerRegrPLNnetwork",
                                 inherit = LearnerRegr,
                                 public = list(
                                   initialize = function() {
                                     ps = ps(
-                                      alpha = p_dbl(0, 1, default = 1, tags = "train"),
-                                      lambda_multipliers = p_uty(default = c(0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5), tags = "train"),
+                                      rho = p_dbl(0.001, default = 0.1, tags = "train"),
                                       max_condition_number = p_dbl(1, 1e15, default = 1e12, tags = "train"),
                                       covariance = p_fct(c("full", "diagonal", "spherical"), default = "full", tags = "train"),
                                       trace = p_int(0, 2, default = 0, tags = "train"),
@@ -195,8 +194,7 @@ LearnerRegrCVPLN <- R6::R6Class("LearnerRegrCVPLN",
                                       offset_scheme = p_fct(c("TSS", "CSS", "RLE", "GMPR", "none"), default = "TSS", tags = "train")
                                     )
                                     ps$values = list(
-                                      alpha = 1,
-                                      lambda_multipliers = c(0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5),
+                                      rho = 0.1,
                                       max_condition_number = 1e12,
                                       covariance = "full", 
                                       trace = 0, 
@@ -204,7 +202,7 @@ LearnerRegrCVPLN <- R6::R6Class("LearnerRegrCVPLN",
                                       offset_scheme = "TSS"
                                     )
                                     super$initialize(
-                                      id = "regr.cv_pln",
+                                      id = "regr.pln_network",
                                       param_set = ps,
                                       feature_types = c("integer", "numeric"),
                                       label = "Poisson Log-Normal Model with CV Lambda Selection",
@@ -241,8 +239,7 @@ LearnerRegrCVPLN <- R6::R6Class("LearnerRegrCVPLN",
                                     net_fit <- PLNnetwork(
                                       Abundance ~ 1,
                                       data = pln_data,
-                                      #penalties = center_lambda/10,
-                                      penalties = 0.1,
+                                      penalties = pv$rho,
                                       control = PLNnetwork_param(
                                         inception = inception
                                       ) 
@@ -250,31 +247,13 @@ LearnerRegrCVPLN <- R6::R6Class("LearnerRegrCVPLN",
                                     
                                     # Get best model
                                     best_model <- getBestModel(net_fit)
-                                    
-                                    # Check condition number for numerical stability
-                                    full_sigma <- solve(best_model$model_par$Omega)
-                                    conditioning_sigma <- full_sigma[input_cols, input_cols]
-                                    condition_number <- kappa(conditioning_sigma)
-                                    
-                                    if (pv$trace > 0) {
-                                      cat("Selected penalty:", round(best_model$penalty, 4), "\n")
-                                      cat("Conditioning submatrix condition number:", round(condition_number, 2), "\n")
-                                    }
-                                    
-                                    if (condition_number > pv$max_condition_number) {
-                                      warning(paste("Conditioning submatrix condition number:", 
-                                                    round(condition_number), "exceeds threshold of", 
-                                                    pv$max_condition_number, "- predictions may be unstable"))
-                                    }
-                                    
+
                                     # Store model and metadata
                                     self$model <- list(
                                       network_model = best_model,
                                       target_name = target_name, 
                                       feature_names = feature_names,
-                                      center_lambda = center_lambda,
                                       selected_penalty = best_model$penalty,
-                                      condition_number = condition_number,
                                       network_density = best_model$density
                                     )
                                     
@@ -376,9 +355,7 @@ LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",
                                      
                                      # Extract best model using specified criterion
                                      best_model <- getBestModel(plnpca_family, pv$criterion %||% "BIC")
-                                     
-                                     # Extract covariance matrix and apply glassoFast
-                                     rho_param <- 0.5 
+                                     rho_param <- pv$rho %||% 0.1  # Use tuned value or default
                                      out <- glassoFast::glassoFast(sigma(best_model), rho = rho_param)
                                      Omega_hat <- out$wi
                                      
@@ -489,6 +466,7 @@ LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",
                                  )
 )
 
+# Modify your custom Poisson measure to handle edge cases
 MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
                                       inherit = mlr3::MeasureRegr,
                                       public = list(
@@ -497,11 +475,7 @@ MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
                                             id = "regr.poisson_deviance",
                                             range = c(0, Inf),
                                             minimize = TRUE,
-                                            predict_type = "response",
-                                            packages = character(0),
-                                            properties = character(0),
-                                            label = "Poisson Deviance",
-                                            man = "custom::poisson_deviance"
+                                            label = "Poisson Deviance"
                                           )
                                         }
                                       ),
@@ -510,10 +484,22 @@ MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
                                           truth <- prediction$truth
                                           response <- prediction$response
                                           
-                                          eps <- 1e-10
-                                          response <- pmax(response, eps)
-                                          log_term <- ifelse(truth == 0, 0, truth * log(truth / response))
-                                          2 * mean(log_term - (truth - response))
+                                          # Handle edge cases
+                                          if (any(is.na(response)) || any(is.infinite(response)) || any(response < 0)) {
+                                            return(1e6)  # Large penalty instead of Inf
+                                          }
+                                          
+                                          # Add small epsilon to avoid log(0)
+                                          epsilon <- 1e-10
+                                          response <- pmax(response, epsilon)
+                                          
+                                          # Calculate Poisson deviance safely
+                                          deviance <- 2 * sum(ifelse(truth > 0, 
+                                                                     truth * log(truth / response) - (truth - response),
+                                                                     response))
+                                          
+                                          # Return finite value or penalty
+                                          if (is.finite(deviance)) deviance else 1e6
                                         }
                                       )
 )
