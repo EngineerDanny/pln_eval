@@ -21,7 +21,7 @@ dataname <- "HMPv13"
 source("/projects/genomic-ml/da2343/PLN/pln_eval/load_source.R")
 #task.dt <- data.table::fread("~/Projects/pln_eval/data/HMPv13_filtered.csv")
 task.dt <- data.table::fread(paste0("/projects/genomic-ml/da2343/PLN/pln_eval/data/", dataname, "_filtered.csv"))
-n_samples <- 50
+n_samples <- 500
 task.dt <- task.dt[1:n_samples,]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
@@ -128,8 +128,8 @@ debug.score.dt <- debug.result$score(poisson_measure)
 #debug.score.dt <- debug.result$score(mlr3::msr("regr.rmse"))
 
 aggregate_results <- debug.score.dt[, .(
-  mean_deviance =mean(regr.poisson_deviance)  ,
-  sd_deviance = sd(regr.poisson_deviance ) ,
+  mean_deviance =mean(regr.poisson_deviance),
+  sd_deviance = sd(regr.poisson_deviance ),
   n_iterations = .N
 ), by = .(learner_id)]
 
@@ -186,7 +186,7 @@ mlr3batchmark::batchmark(
 job.table <- batchtools::getJobTable(reg=reg)
 chunks <- data.frame(job.table, chunk=1)
 batchtools::submitJobs(chunks, resources=list(
-  walltime = 60*60*5,#seconds
+  walltime = 60*60*24,#seconds
   memory = 2048,#megabytes per cpu
   ncpus=1,  #>1 for multicore/parallel jobs.
   ntasks=1, #>1 for MPI jobs.
@@ -199,13 +199,11 @@ batchtools::getStatus(reg=reg)
 jobs.after <- batchtools::getJobTable(reg=reg)
 table(jobs.after$error)
 jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
-ids <- jobs.after[is.na(error), job.id]
-ids <- jobs.after[done, job.id]
-ids <- jobs.after[done == TRUE, job.id]
+#ids <- jobs.after[is.na(error), job.id]
 ids <- jobs.after[!is.na(done) & is.na(error), job.id]
 bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
 score.dt <- bmr$score(poisson_measure)
-
+score.dt <- bmr$score(mlr3::msr("regr.rmse"))
 
 aggregate_results <- score.dt[, .(
   mean_deviance = mean( regr.poisson_deviance  , na.rm = TRUE),

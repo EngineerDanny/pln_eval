@@ -183,171 +183,188 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
 )
 
 LearnerRegrPLNnetwork <- R6::R6Class("LearnerRegrPLNnetwork",
-                                inherit = LearnerRegr,
-                                public = list(
-                                  initialize = function() {
-                                    ps = ps(
-                                      rho = p_dbl(0.001, default = 0.1, tags = "train"),
-                                      max_condition_number = p_dbl(1, 1e15, default = 1e12, tags = "train"),
-                                      covariance = p_fct(c("full", "diagonal", "spherical"), default = "full", tags = "train"),
-                                      trace = p_int(0, 2, default = 0, tags = "train"),
-                                      backend = p_fct(c("nlopt", "torch"), default = "nlopt", tags = "train"),
-                                      offset_scheme = p_fct(c("TSS", "CSS", "RLE", "GMPR", "none"), default = "TSS", tags = "train")
-                                    )
-                                    ps$values = list(
-                                      rho = 0.1,
-                                      max_condition_number = 1e12,
-                                      covariance = "full", 
-                                      trace = 0, 
-                                      backend = "nlopt", 
-                                      offset_scheme = "TSS"
-                                    )
-                                    super$initialize(
-                                      id = "regr.pln_network",
-                                      param_set = ps,
-                                      feature_types = c("integer", "numeric"),
-                                      label = "Poisson Log-Normal Model with CV Lambda Selection",
-                                      packages = c("PLNmodels", "glmnet")
-                                    )
-                                  }
-                                ),
-                                private = list(
-                                  .train = function(task) {
-                                    pv <- self$param_set$get_values(tags = "train")
-                                    target_name <- task$target_names
-                                    feature_names <- task$feature_names
-                                    
-                                    # Get data and convert to matrix
-                                    task_data <- task$data(cols = c(target_name, feature_names))
-                                    abundance_matrix <- data.matrix(task_data, rownames.force = TRUE)
-                                    
-                                    # Prepare covariates (intercept only)
-                                    covariates <- data.frame(row.names = rownames(abundance_matrix))
-                                    
-                                    # Prepare PLN data
-                                    pln_data <- prepare_data(
-                                      counts = abundance_matrix, 
-                                      covariates = covariates, 
-                                      offset = pv$offset_scheme
-                                    )
-                                    
-                                    inception <- PLN(Abundance ~ 1,
-                                                     data = pln_data,
-                                                     control = PLN_param(backend = "torch", 
-                                                                         trace = 0))
-                                    
-                                  
-                                    net_fit <- PLNnetwork(
-                                      Abundance ~ 1,
-                                      data = pln_data,
-                                      penalties = pv$rho,
-                                      control = PLNnetwork_param(
-                                        inception = inception
-                                      ) 
-                                    )
-                                    
-                                    # Get best model
-                                    best_model <- getBestModel(net_fit)
-
-                                    # Store model and metadata
-                                    self$model <- list(
-                                      network_model = best_model,
-                                      target_name = target_name, 
-                                      feature_names = feature_names,
-                                      selected_penalty = best_model$penalty,
-                                      network_density = best_model$density
-                                    )
-                                    
-                                    invisible(self$model)
-                                  },
-                                  .predict = function(task) {
-                                    # Get test data from MLR3 task
-                                    X_test <- task$data(cols = task$feature_names)
-                                    y_test <- task$data(cols = task$target_names)[[1]]
-                                    
-                                    # Create test abundance matrix: target + features
-                                    target_name <- self$model$target_name
-                                    feature_names <- self$model$feature_names
-                                    
-                                    test_abundance_matrix <- cbind(y_test, X_test)
-                                    colnames(test_abundance_matrix) <- c(target_name, feature_names)
-                                    test_abundance_matrix <- data.matrix(test_abundance_matrix, rownames.force = TRUE)
-                                    
-                                    # Store original test info for MLR3 compatibility
-                                    n_test_original <- nrow(test_abundance_matrix)
-                                    original_row_names <- rownames(test_abundance_matrix)
-                                    
-                                    # Check for empty samples (rowSums == 0) before prepare_data
-                                    row_sums <- rowSums(test_abundance_matrix)
-                                    empty_samples <- which(row_sums == 0)
-                                    non_empty_samples <- which(row_sums > 0)
-                                    
-                                    # Initialize prediction vector
-                                    y_predict <- rep(NA_real_, n_test_original)
-                                    names(y_predict) <- original_row_names
-                                    
-                                    # Only process non-empty samples through PLN
-                                    if (length(non_empty_samples) > 0) {
-                                      # Create subset for non-empty samples
-                                      non_empty_abundance <- test_abundance_matrix[non_empty_samples, , drop = FALSE]
-                                      
-                                      # Create corresponding covariates (empty data.frame with row names for network model)
-                                      test_covariates <- data.frame(row.names = rownames(non_empty_abundance))
-                                      
-                                      # Prepare data for PLN (should not remove any samples now)
-                                      test_pln_data <- prepare_data(
-                                        counts = non_empty_abundance,
-                                        covariates = test_covariates,
-                                        offset = "TSS"  # Use same offset as training
-                                      )
-                                      
-                                      # For network conditional prediction:
-                                      # newdata = empty covariates (as in original)
-                                      # cond_responses = feature species only (exclude target)
-                                      newdata <- data.frame(row.names = rownames(test_pln_data$Abundance))
-                                      
-                                      # Conditioning data: feature species only (exclude target)
-                                      conditioning_data <- test_pln_data$Abundance[, feature_names, drop = FALSE]
-                                      
-                                      # Make conditional predictions using predict_cond on network model
-                                      pln_cond_predictions <- predict_cond(
-                                        self$model$network_model, 
-                                        newdata = newdata, 
-                                        cond_responses = conditioning_data, 
-                                        type = "response"
-                                      )
-                                      
-                                      # Extract prediction for target species (first column)
-                                      valid_predictions <- pln_cond_predictions[, 1]
-                                      
-                                      # Map predictions back to original indices
-                                      valid_row_names <- rownames(test_pln_data$Abundance)
-                                      y_predict[valid_row_names] <- valid_predictions
-                                    }
-                                    
-                                    # Handle empty samples with fallback
-                                    if (length(empty_samples) > 0) {
-                                      # For empty samples, predict zero counts
-                                      y_predict[empty_samples] <- 0
-                                    }
-                                    
-                                    # Ensure all predictions are filled (should not have NAs)
-                                    if (any(is.na(y_predict))) {
-                                      # Final fallback for any remaining NAs
-                                      remaining_nas <- is.na(y_predict)
-                                      fallback_value <- if (length(non_empty_samples) > 0) {
-                                        mean(y_predict[!remaining_nas], na.rm = TRUE)
-                                      } else {
-                                        0  # If all samples are empty, predict 0 counts
-                                      }
-                                      y_predict[remaining_nas] <- fallback_value
-                                    }
-                                    
-                                    # Return predictions (exactly matches original test sample count)
-                                    list(response = as.vector(y_predict))
-                                  }
-                                  
-                                  )
+                                     inherit = LearnerRegr,
+                                     public = list(
+                                       initialize = function() {
+                                         ps = ps(
+                                           rho = p_dbl(0.001, default = 0.1, tags = "train"),
+                                           max_condition_number = p_dbl(1, 1e15, default = 1e12, tags = "train"),
+                                           covariance = p_fct(c("full", "diagonal", "spherical"), default = "full", tags = "train"),
+                                           trace = p_int(0, 2, default = 0, tags = "train"),
+                                           backend = p_fct(c("nlopt", "torch"), default = "nlopt", tags = "train"),
+                                           offset_scheme = p_fct(c("TSS", "CSS", "RLE", "GMPR", "none"), default = "TSS", tags = "train")
+                                         )
+                                         ps$values = list(
+                                           rho = 0.1,
+                                           max_condition_number = 1e12,
+                                           covariance = "full", 
+                                           trace = 0, 
+                                           backend = "nlopt", 
+                                           offset_scheme = "TSS"
+                                         )
+                                         super$initialize(
+                                           id = "regr.pln_network",
+                                           param_set = ps,
+                                           feature_types = c("integer", "numeric"),
+                                           label = "Poisson Log-Normal Network Model with Fallback",
+                                           packages = c("PLNmodels", "glmnet")
+                                         )
+                                       }
+                                     ),
+                                     private = list(
+                                       .train = function(task) {
+                                         pv <- self$param_set$get_values(tags = "train")
+                                         target_name <- task$target_names
+                                         feature_names <- task$feature_names
+                                         
+                                         # Get data and convert to matrix
+                                         task_data <- task$data(cols = c(target_name, feature_names))
+                                         abundance_matrix <- data.matrix(task_data, rownames.force = TRUE)
+                                         
+                                         # Store featureless fallback (target mean)
+                                         target_mean <- mean(abundance_matrix[, target_name], na.rm = TRUE)
+                                         
+                                         # Prepare covariates (intercept only)
+                                         covariates <- data.frame(row.names = rownames(abundance_matrix))
+                                         
+                                         # Prepare PLN data
+                                         pln_data <- prepare_data(
+                                           counts = abundance_matrix, 
+                                           covariates = covariates, 
+                                           offset = pv$offset_scheme
+                                         )
+                                         
+                                         # Fit inception model
+                                         inception <- PLN(Abundance ~ 1,
+                                                          data = pln_data,
+                                                          control = PLN_param(backend = "torch", 
+                                                                              trace = 0))
+                                         
+                                         # Fit network model
+                                         net_fit <- PLNnetwork(
+                                           Abundance ~ 1,
+                                           data = pln_data,
+                                           penalties = pv$rho,
+                                           control = PLNnetwork_param(
+                                             inception = inception
+                                           ) 
+                                         )
+                                         
+                                         # Get best model
+                                         best_model <- getBestModel(net_fit)
+                                         
+                                         # Store model and metadata
+                                         self$model <- list(
+                                           network_model = best_model,
+                                           target_name = target_name, 
+                                           feature_names = feature_names,
+                                           target_mean = target_mean,
+                                           selected_penalty = best_model$penalty,
+                                           network_density = best_model$density,
+                                           pv = pv
+                                         )
+                                         
+                                         invisible(self$model)
+                                       },
+                                       .predict = function(task) {
+                                         # Get test data from MLR3 task
+                                         X_test <- task$data(cols = task$feature_names)
+                                         y_test <- task$data(cols = task$target_names)[[1]]
+                                         
+                                         # Create test abundance matrix: target + features
+                                         target_name <- self$model$target_name
+                                         feature_names <- self$model$feature_names
+                                         
+                                         test_abundance_matrix <- cbind(y_test, X_test)
+                                         colnames(test_abundance_matrix) <- c(target_name, feature_names)
+                                         test_abundance_matrix <- data.matrix(test_abundance_matrix, rownames.force = TRUE)
+                                         
+                                         # Store original test info for MLR3 compatibility
+                                         n_test_original <- nrow(test_abundance_matrix)
+                                         original_row_names <- rownames(test_abundance_matrix)
+                                         
+                                         # Check for empty samples (rowSums == 0)
+                                         row_sums <- rowSums(test_abundance_matrix)
+                                         empty_samples <- which(row_sums == 0)
+                                         non_empty_samples <- which(row_sums > 0)
+                                         
+                                         # Initialize prediction vector
+                                         y_predict <- rep(NA_real_, n_test_original)
+                                         names(y_predict) <- original_row_names
+                                         
+                                         # Featureless fallback value
+                                         featureless_prediction <- self$model$target_mean
+                                         
+                                         # Only process non-empty samples through PLN
+                                         if (length(non_empty_samples) > 0) {
+                                           # Create subset for non-empty samples
+                                           non_empty_abundance <- test_abundance_matrix[non_empty_samples, , drop = FALSE]
+                                           
+                                           # Create corresponding covariates
+                                           test_covariates <- data.frame(row.names = rownames(non_empty_abundance))
+                                           
+                                           # Prepare data for PLN
+                                           test_pln_data <- prepare_data(
+                                             counts = non_empty_abundance,
+                                             covariates = test_covariates,
+                                             offset = self$model$pv$offset_scheme %||% "TSS"
+                                           )
+                                           
+                                           # For network conditional prediction
+                                           newdata <- data.frame(row.names = rownames(test_pln_data$Abundance))
+                                           conditioning_data <- test_pln_data$Abundance[, feature_names, drop = FALSE]
+                                           
+                                           # Make conditional predictions using predict_cond on network model
+                                           pln_cond_predictions <- predict_cond(
+                                             self$model$network_model, 
+                                             newdata = newdata, 
+                                             cond_responses = conditioning_data, 
+                                             type = "response"
+                                           )
+                                           
+                                           # Extract prediction for target species (first column)
+                                           valid_predictions <- pln_cond_predictions[, 1]
+                                           
+                                           # SAFETY CHECK: Detect extreme predictions and use fallback
+                                           if (any(is.infinite(valid_predictions)) || 
+                                               any(is.nan(valid_predictions)) || 
+                                               any(valid_predictions < 0) ||
+                                               any(valid_predictions > 1e6) ||
+                                               (length(valid_predictions) > 1 && 
+                                                max(valid_predictions, na.rm = TRUE) / 
+                                                min(valid_predictions[valid_predictions > 0], na.rm = TRUE) > 1e10)) {
+                                             
+                                             warning("PLN network produced extreme predictions, using featureless fallback")
+                                             y_predict[non_empty_samples] <- featureless_prediction
+                                             
+                                           } else {
+                                             # Map predictions back to original indices
+                                             valid_row_names <- rownames(test_pln_data$Abundance)
+                                             y_predict[valid_row_names] <- valid_predictions
+                                           }
+                                         }
+                                         
+                                         # Handle empty samples
+                                         if (length(empty_samples) > 0) {
+                                           y_predict[empty_samples] <- 0
+                                         }
+                                         
+                                         # Final safety check for any remaining NAs
+                                         if (any(is.na(y_predict))) {
+                                           remaining_nas <- is.na(y_predict)
+                                           y_predict[remaining_nas] <- featureless_prediction
+                                         }
+                                         
+                                         # Final extreme value check
+                                         extreme_values <- is.infinite(y_predict) | is.nan(y_predict) | y_predict < 0 | y_predict > 1e6
+                                         if (any(extreme_values)) {
+                                           y_predict[extreme_values] <- featureless_prediction
+                                         }
+                                         
+                                         # Return predictions
+                                         list(response = as.vector(y_predict))
+                                       }
+                                     )
 )
 
 LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",
@@ -528,39 +545,50 @@ LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",
 )
 
 # Modify your custom Poisson measure to handle edge cases
-MeasurePoissonDeviance <- R6::R6Class("MeasurePoissonDeviance",
-                                      inherit = mlr3::MeasureRegr,
-                                      public = list(
-                                        initialize = function() {
-                                          super$initialize(
-                                            id = "regr.poisson_deviance",
-                                            range = c(0, Inf),
-                                            minimize = TRUE,
-                                            label = "Poisson Deviance"
-                                          )
-                                        }
-                                      ),
-                                      private = list(
-                                        .score = function(prediction, ...) {
-                                          truth <- prediction$truth
-                                          response <- prediction$response
-                                          
-                                          # Handle edge cases
-                                          if (any(is.na(response)) || any(is.infinite(response)) || any(response < 0)) {
-                                            return(1e6)  # Large penalty instead of Inf
-                                          }
-                                          
-                                          # Add small epsilon to avoid log(0)
-                                          epsilon <- 1e-10
-                                          response <- pmax(response, epsilon)
-                                          
-                                          # Calculate Poisson deviance safely
-                                          deviance <- 2 * sum(ifelse(truth > 0, 
-                                                                     truth * log(truth / response) - (truth - response),
-                                                                     response))
-                                          
-                                          # Return finite value or penalty
-                                          if (is.finite(deviance)) deviance else 1e6
-                                        }
-                                      )
+# Poisson deviance measure (mean) for mlr3
+MeasurePoissonDeviance <- R6::R6Class(
+  "MeasurePoissonDeviance",
+  inherit = mlr3::MeasureRegr,
+  public = list(
+    initialize = function() {
+      super$initialize(
+        id = "regr.poisson_deviance",
+        range = c(0, Inf),
+        minimize = TRUE,
+        predict_type = "response",
+        packages = character(0),
+        properties = character(0),
+        label = "Mean Poisson Deviance",
+        man = "custom::poisson_deviance"
+      )
+    }
+  ),
+  private = list(
+    .score = function(prediction, ...) {
+      truth <- prediction$truth
+      response <- prediction$response
+      
+      # Guard against illegal predictions
+      if (anyNA(response) || any(is.infinite(response)) || any(response < 0)) {
+        return(1e6)  # Large penalty to keep measure finite and discourage invalid models
+      }
+      
+      # Floor responses to avoid log(0)
+      eps <- 1e-10
+      response <- pmax(response, eps)
+      
+      # Compute per‑observation deviance
+      log_term <- ifelse(truth == 0, 0, truth * log(truth / response))
+      dev <- 2 * (log_term - (truth - response))
+      
+      # Return mean deviance
+      mean(dev)
+    }
+  )
 )
+
+
+# Create and use the measure
+poisson_measure <- MeasurePoissonDeviance$new()
+mlr3::mlr_measures$add("regr.poisson_deviance", MeasurePoissonDeviance)
+
