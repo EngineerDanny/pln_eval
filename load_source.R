@@ -85,7 +85,8 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
                                     feature_names = feature_names,
                                     pv = pv
                                   )
-                                  self$model
+                                  
+                                  invisible(self$model)
                                 },
                                 .predict = function(task) {
                                   # Get test data from MLR3 task
@@ -260,33 +261,93 @@ LearnerRegrPLNnetwork <- R6::R6Class("LearnerRegrPLNnetwork",
                                     invisible(self$model)
                                   },
                                   .predict = function(task) {
+                                    # Get test data from MLR3 task
+                                    X_test <- task$data(cols = task$feature_names)
+                                    y_test <- task$data(cols = task$target_names)[[1]]
+                                    
+                                    # Create test abundance matrix: target + features
                                     target_name <- self$model$target_name
                                     feature_names <- self$model$feature_names
                                     
-                                    # Get prediction data
-                                    task_data <- task$data(cols = c(target_name, feature_names))
-                                    abundance_matrix <- data.matrix(task_data, rownames.force = TRUE)
+                                    test_abundance_matrix <- cbind(y_test, X_test)
+                                    colnames(test_abundance_matrix) <- c(target_name, feature_names)
+                                    test_abundance_matrix <- data.matrix(test_abundance_matrix, rownames.force = TRUE)
                                     
-                                    # Prepare covariates for prediction (empty data.frame with row names)
-                                    covariates <- data.frame(row.names = rownames(abundance_matrix))
+                                    # Store original test info for MLR3 compatibility
+                                    n_test_original <- nrow(test_abundance_matrix)
+                                    original_row_names <- rownames(test_abundance_matrix)
                                     
-                                    # Get conditioning data (input features)
-                                    conditioning_data <- abundance_matrix[, feature_names, drop = FALSE]
+                                    # Check for empty samples (rowSums == 0) before prepare_data
+                                    row_sums <- rowSums(test_abundance_matrix)
+                                    empty_samples <- which(row_sums == 0)
+                                    non_empty_samples <- which(row_sums > 0)
                                     
-                                    # Make predictions using predict_cond
-                                    pred <- predict_cond(
-                                      self$model$network_model, 
-                                      newdata = covariates, 
-                                      cond_responses = conditioning_data, 
-                                      type = "response"
-                                    )
+                                    # Initialize prediction vector
+                                    y_predict <- rep(NA_real_, n_test_original)
+                                    names(y_predict) <- original_row_names
                                     
-                                    # Extract predictions (assuming single target column)
-                                    pred_values <- as.vector(pred[, 1])
+                                    # Only process non-empty samples through PLN
+                                    if (length(non_empty_samples) > 0) {
+                                      # Create subset for non-empty samples
+                                      non_empty_abundance <- test_abundance_matrix[non_empty_samples, , drop = FALSE]
+                                      
+                                      # Create corresponding covariates (empty data.frame with row names for network model)
+                                      test_covariates <- data.frame(row.names = rownames(non_empty_abundance))
+                                      
+                                      # Prepare data for PLN (should not remove any samples now)
+                                      test_pln_data <- prepare_data(
+                                        counts = non_empty_abundance,
+                                        covariates = test_covariates,
+                                        offset = "TSS"  # Use same offset as training
+                                      )
+                                      
+                                      # For network conditional prediction:
+                                      # newdata = empty covariates (as in original)
+                                      # cond_responses = feature species only (exclude target)
+                                      newdata <- data.frame(row.names = rownames(test_pln_data$Abundance))
+                                      
+                                      # Conditioning data: feature species only (exclude target)
+                                      conditioning_data <- test_pln_data$Abundance[, feature_names, drop = FALSE]
+                                      
+                                      # Make conditional predictions using predict_cond on network model
+                                      pln_cond_predictions <- predict_cond(
+                                        self$model$network_model, 
+                                        newdata = newdata, 
+                                        cond_responses = conditioning_data, 
+                                        type = "response"
+                                      )
+                                      
+                                      # Extract prediction for target species (first column)
+                                      valid_predictions <- pln_cond_predictions[, 1]
+                                      
+                                      # Map predictions back to original indices
+                                      valid_row_names <- rownames(test_pln_data$Abundance)
+                                      y_predict[valid_row_names] <- valid_predictions
+                                    }
                                     
-                                    list(response = pred_values)
+                                    # Handle empty samples with fallback
+                                    if (length(empty_samples) > 0) {
+                                      # For empty samples, predict zero counts
+                                      y_predict[empty_samples] <- 0
+                                    }
+                                    
+                                    # Ensure all predictions are filled (should not have NAs)
+                                    if (any(is.na(y_predict))) {
+                                      # Final fallback for any remaining NAs
+                                      remaining_nas <- is.na(y_predict)
+                                      fallback_value <- if (length(non_empty_samples) > 0) {
+                                        mean(y_predict[!remaining_nas], na.rm = TRUE)
+                                      } else {
+                                        0  # If all samples are empty, predict 0 counts
+                                      }
+                                      y_predict[remaining_nas] <- fallback_value
+                                    }
+                                    
+                                    # Return predictions (exactly matches original test sample count)
+                                    list(response = as.vector(y_predict))
                                   }
-                                )
+                                  
+                                  )
 )
 
 LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",

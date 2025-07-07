@@ -21,7 +21,7 @@ dataname <- "HMPv13"
 source("/projects/genomic-ml/da2343/PLN/pln_eval/load_source.R")
 #task.dt <- data.table::fread("~/Projects/pln_eval/data/HMPv13_filtered.csv")
 task.dt <- data.table::fread(paste0("/projects/genomic-ml/da2343/PLN/pln_eval/data/", dataname, "_filtered.csv"))
-n_samples <- 100
+n_samples <- 50
 task.dt <- task.dt[1:n_samples,]
 taxa_columns <- setdiff(names(task.dt), "Group_ID")
 task.dt[, (taxa_columns) := lapply(.SD, function(x) log1p(x)), .SDcols = taxa_columns]
@@ -49,7 +49,7 @@ cv_glmnet_learner$param_set$values$type.measure <- "deviance"
 cv_glmnet_learner$param_set$values$family <- "poisson"
 
 plnpca_learner <- LearnerRegrPLNPCA$new()
-plnpca_learner$param_set$values$rho <- paradox::to_tune(levels = c(0.05, 0.1, 0.5, 0.7))
+plnpca_learner$param_set$values$rho <- paradox::to_tune(levels = c(0.02, 0.05, 0.1, 0.2, 0.5, 0.7, 0.9))
 plnpca_learner$encapsulate(method = "evaluate", fallback = mlr3::LearnerRegrFeatureless$new())
 plnpca_learner_tuned <- mlr3tuning::auto_tuner(
   tuner = mlr3tuning::TunerBatchGridSearch$new(),
@@ -63,8 +63,7 @@ pln_learner <- LearnerRegrPLN$new()
 pln_learner$encapsulate(method = "evaluate", fallback = mlr3::LearnerRegrFeatureless$new())
 
 pln_network_learner <- LearnerRegrPLNnetwork$new()
-#pln_network_learner$param_set$values$rho <- 0.1
-pln_network_learner$param_set$values$rho <- paradox::to_tune(levels = c(0.05, 0.1, 0.5, 0.7))
+pln_network_learner$param_set$values$rho <- paradox::to_tune(levels = c(0.02, 0.05, 0.1, 0.2, 0.5, 0.7, 0.9))
 pln_network_learner$encapsulate(method = "evaluate", fallback = mlr3::LearnerRegrFeatureless$new())
 pln_network_learner_tuned <- mlr3tuning::auto_tuner(
   tuner = mlr3tuning::TunerBatchGridSearch$new(),
@@ -171,11 +170,10 @@ mycv$param_set$values$folds=3
   task.list,
   reg.learner.list,
   mycv))
-reg.dir <- paste0("~/Projects/pln_eval/bmr/", dataname, "_", n_samples, "_samples")
-
+reg.dir <- paste0("/projects/genomic-ml/da2343/PLN/pln_eval/bmr/", dataname, "_", n_samples, "_samples")
 dir.create(reg.dir, recursive = TRUE)
 reg <- batchtools::loadRegistry(reg.dir,writeable = TRUE)
-# Check if directory exists
+
 unlink(reg.dir, recursive=TRUE)
 
 reg = batchtools::makeExperimentRegistry(
@@ -202,9 +200,11 @@ jobs.after <- batchtools::getJobTable(reg=reg)
 table(jobs.after$error)
 jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
 ids <- jobs.after[is.na(error), job.id]
+ids <- jobs.after[done, job.id]
+ids <- jobs.after[done == TRUE, job.id]
+ids <- jobs.after[!is.na(done) & is.na(error), job.id]
 bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
 score.dt <- bmr$score(poisson_measure)
-#save(bmr, file="/projects/genomic-ml/da2343/PLN/pln_eval/bmr/hmpv13_06_20.RData")
 
 
 aggregate_results <- score.dt[, .(
@@ -213,3 +213,5 @@ aggregate_results <- score.dt[, .(
   n_iterations = .N
 ), by = .(learner_id)]
 print(aggregate_results)
+
+save(bmr, file=paste0("/projects/genomic-ml/da2343/PLN/pln_eval/bmr/", dataname, "_", n_samples, "_samples.RData"))
