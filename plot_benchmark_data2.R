@@ -9,12 +9,12 @@ dataset_info <- data.table(
   D = c(138, 63, 117)
 )
 
-dataset_info <- data.table(
-  dataset = c( "hmp216S_47_samples"),
-  dataset_name = c("hmp216S"),
-  N = c(47),
-  D = c(45)
-)
+#dataset_info <- data.table(
+# dataset = c( "hmp216S_47_samples"),
+#  dataset_name = c("hmp216S"),
+#  N = c(47),
+#  D = c(45)
+#)
 
 #dataset_info <- data.table(
 #  dataset = c("crohns_100_samples", "mixmpln_195_samples"),
@@ -69,16 +69,26 @@ score_summary[, is_pln := algorithm %in% c("PLN", "PLN Network", "PLN PCA")]
 
 baseline <- "GLMNet (Poisson)"
 
-baseline_data <- plot_data[algorithm == baseline]
-setnames(baseline_data, "regr.poisson_deviance", "baseline_deviance")
-baseline_data <- baseline_data[, .(dataset, baseline_deviance)]
+iteration_summary <- plot_data[, .(
+  iteration_mean_deviance = mean(regr.poisson_deviance)
+), by = .(dataset, iteration, algorithm)]
 
-comparison_data <- merge(plot_data, baseline_data, by = "dataset", allow.cartesian = TRUE)
+baseline_iteration <- iteration_summary[algorithm == baseline, .(
+  dataset,
+  iteration,
+  baseline_deviance = iteration_mean_deviance
+)]
+
+comparison_data <- merge(
+  iteration_summary,
+  baseline_iteration,
+  by = c("dataset", "iteration"),
+  all.x = TRUE
+)
 
 test_results <- comparison_data[algorithm != baseline, {
-  test <- t.test(regr.poisson_deviance, baseline_deviance, paired = TRUE)
-  browser()
-  .(mean_diff = mean(regr.poisson_deviance - baseline_deviance),
+  test <- t.test(iteration_mean_deviance, baseline_deviance, paired = TRUE)
+  .(mean_diff = mean(iteration_mean_deviance - baseline_deviance),
     p_value = test$p.value)
 }, by = .(algorithm, dataset)]
 
@@ -133,10 +143,10 @@ gg <- ggplot(score_summary_with_tests, aes(x = mean_deviance, y = algorithm)) +
   )
 
 ggsave(
-  "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/plnpca_wins.png",
+  "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/pln_wins_9_oct.png",
   plot = gg,
-  #width = 5,
-  #height = 2,
-  width = 2.5,
-  height = 1.8,
+  width = 5,
+  height = 2,
+  #width = 2.5,
+  #height = 1.8,
   dpi = 700)
