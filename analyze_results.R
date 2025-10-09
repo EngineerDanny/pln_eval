@@ -4,23 +4,30 @@ reg.dir <- "/scratch/da2343/amgut1_06_20_reg"
 reg.dir <- "/scratch/da2343/amgut2_06_20_reg"
 reg.dir <- "/scratch/da2343/baxter_crc_06_22_reg"
 reg.dir <- "/scratch/da2343/crohns_06_22_reg"
-reg.dir <- "/scratch/da2343/glne007_06_22_reg"
 reg.dir <- "/scratch/da2343/hmp2prot_06_22_reg"
 reg.dir <- "/scratch/da2343/hmp216S_06_22_reg"
 reg.dir <- "/scratch/da2343/ioral_06_22_reg"
 reg.dir <- "/scratch/da2343/mixmpln_06_22_reg"
+reg.dir <- "/scratch/da2343/glne007_06_22_reg"
 #reg.dir <- "/scratch/da2343/soilrep_06_22_reg"
 #reg.dir <- "/scratch/da2343/MovingPictures_06_22_reg"
 #reg.dir <- "/scratch/da2343/qa10394_06_22_reg"
 #reg.dir <- "/scratch/da2343/TwinsUK_06_22_reg"
 
-reg.dir <- "/scratch/da2343/amgut1_06_25_reg"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/bmr/amgut2_297_samples"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/bmr/hmp216S_47_samples"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/bmr/hmp2prot_47_samples"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/bmr/crohns_100_samples"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/bmr/mixmpln_195_samples"
+reg.dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/bmr/ioral_86_samples"
+
 
 reg <- batchtools::loadRegistry(reg.dir, writeable = TRUE)
 jobs.after <- batchtools::getJobTable(reg=reg)
 table(jobs.after$error)
 jobs.after[!is.na(error), .(error, task_id=sapply(prob.pars, "[[", "task_id"))][25:26]
 ids <- jobs.after[is.na(error), job.id]
+batchtools::getStatus(reg=reg)
 
 if(T){
 bmr = mlr3batchmark::reduceResultsBatchmark(ids, reg = reg, store_backends = FALSE)
@@ -36,4 +43,4 @@ plot_data <- extract_scores_directly(ids, reg, jobs.after)
 }
 
 
-data.table::fwrite(plot_data, "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/amgut1_06_25_reg.csv")
+data.table::fwrite(plot_data, "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/ioral_86_samples.csv")
