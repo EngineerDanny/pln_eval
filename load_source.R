@@ -170,8 +170,8 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
             Abundance ~ 1,
             data    = pln_prepare_counts(counts, offset_scheme),
             control = PLN_param(
-              covariance   = pv$covariance, trace = 0L, backend = pv$backend,
-              config_optim = if (pv$backend == "torch") list(lr = 0.01) else list()
+              covariance = pv$covariance, trace = 0L, backend = pv$backend,
+              config_optim = if (pv$backend == "torch") list(algorithm = "ADAM", lr = 0.01) else list()
             )
           ),
           feature_names = t$feature_names
@@ -362,7 +362,7 @@ LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",
         ranks = seq_len(max_rank),
         control = PLNPCA_param(
           backend = pv$backend, trace = pv$trace,
-          config_optim = if (pv$backend == "torch") list(lr = 0.01) else list()
+          config_optim = if (pv$backend == "torch") list(algorithm = "ADAM", lr = 0.01) else list()
         )
       )
       best_model <- getBestModel(plnpca_family, pv$criterion)
@@ -374,7 +374,7 @@ LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",
           Omega = glassoFast::glassoFast(sigma(best_model), rho = pv$rho)$wi,
           backend = pv$backend,
           trace = pv$trace,
-          config_optim = if (pv$backend == "torch") list(lr = 0.01) else list()
+          config_optim = if (pv$backend == "torch") list(algorithm = "ADAM", lr = 0.01) else list()
         )
       )
 
@@ -394,6 +394,47 @@ LearnerRegrPLNPCA <- R6::R6Class("LearnerRegrPLNPCA",
         offset_scheme = self$model$pv$offset_scheme,
         model = self$model$pln_model
       )
+    }
+  )
+)
+
+LearnerRegrLasso <- R6::R6Class("LearnerRegrLasso",
+  inherit = LearnerRegr,
+  public = list(
+    initialize = function() {
+      super$initialize(
+        id = "regr.lasso",
+        feature_types = c("integer", "numeric"),
+        label = "Poisson Lasso with Prediction Clipping",
+        packages = "glmnet"
+      )
+    }
+  ),
+  private = list(
+    .train = function(task) {
+      x <- data.matrix(task$data(cols = task$feature_names))
+      y <- task$data(cols = task$target_names)[[1]]
+      target_mean <- mean(y, na.rm = TRUE)
+      model <- tryCatch(
+        glmnet::cv.glmnet(x, y, alpha = 1, family = "poisson", type.measure = "deviance"),
+        error = function(e) NULL
+      )
+      self$model <- list(model = model, target_mean = target_mean, max_y = max(y, na.rm = TRUE))
+      invisible(self$model)
+    },
+    .predict = function(task) {
+      x <- data.matrix(task$data(cols = task$feature_names))
+      fallback <- self$model$target_mean
+      if (is.null(self$model$model)) {
+        return(list(response = rep(fallback, nrow(x))))
+      }
+      response <- as.vector(
+        predict(self$model$model, newx = x, s = "lambda.min", type = "response")
+      )
+      invalid <- is.infinite(response) | is.nan(response) | response < 0
+      if (any(invalid)) response[invalid] <- fallback
+      response <- pmin(response, self$model$max_y * 2)
+      list(response = response)
     }
   )
 )
