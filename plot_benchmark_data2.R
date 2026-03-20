@@ -9,19 +9,23 @@ dataset_info <- data.table(
   D = c(138, 63, 117)
 )
 
-#dataset_info <- data.table(
-# dataset = c( "hmp216S_47_samples"),
-#  dataset_name = c("hmp216S"),
-#  N = c(47),
-#  D = c(45)
-#)
-
-#dataset_info <- data.table(
-#  dataset = c("crohns_100_samples", "mixmpln_195_samples"),
-#  dataset_name = c("crohns", "mixmpln"),
-#  N = c(100, 195),
-#  D = c(5, 129)
-#)
+if(T){
+  dataset_info <- data.table(
+    dataset = c("crohns_100_samples", "mixmpln_195_samples", "hmp216S_47_samples"),
+    dataset_name = c("crohns", "mixmpln", "hmp216S"),
+    N = c(100,  195, 47),
+    D = c(5, 129, 45)
+  )
+  
+}
+if(F){
+dataset_info <- data.table(
+  dataset = c("crohns_100_samples", "mixmpln_195_samples"),
+  dataset_name = c("crohns", "mixmpln"),
+  N = c(100, 195),
+  D = c(5, 129)
+)
+}
 
 
 plot_data_list <- list()
@@ -113,7 +117,7 @@ gg <- ggplot(score_summary_with_tests, aes(x = mean_deviance, y = algorithm)) +
                data = segment_data) +
   geom_text(aes(x = mean_deviance, y = algorithm,
                 label = sprintf("Diff=%.4f, %s", mean_diff, p_label),
-                hjust = label_hjust,
+                hjust = 0.5,
                 color = performance),
             size = 1.5, vjust = -0.5,
             data = segment_data) +
@@ -143,10 +147,47 @@ gg <- ggplot(score_summary_with_tests, aes(x = mean_deviance, y = algorithm)) +
   )
 
 ggsave(
-  "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/pln_wins_9_oct.png",
+  "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/glmnet_wins_13_nov.png",
   plot = gg,
   width = 5,
   height = 2,
   #width = 2.5,
   #height = 1.8,
   dpi = 700)
+
+
+
+
+
+
+if(F){
+  
+baseline <- plot_data[
+  learner_id == "regr.cv_glmnet",
+  .(dataset, task_id, iteration, baseline_deviance = regr.poisson_deviance)
+]
+
+scatter_data <- merge(
+  plot_data,
+  baseline,
+  by = c("dataset", "task_id", "iteration"),
+  allow.cartesian = TRUE
+)
+
+scatter_data <- scatter_data[
+  learner_id != "regr.cv_glmnet" &
+    dataset == "baxter_crc_490_samples"   # pick whichever dataset you want
+]
+
+with(
+  scatter_data,
+  plot(
+    log(baseline_deviance),
+    log(regr.poisson_deviance),
+    xlab = "log(baseline_deviance)",
+    ylab = "log(regr.poisson_deviance)",
+    pch = 1
+  )
+)
+}
+
