@@ -111,24 +111,10 @@ chunks <- data.frame(job.table, chunk = 1)
 batchtools::submitJobs(chunks, resources = list(
   walltime = slurm_walltime,
   memory   = slurm_memory,
-  ncpus    = 1L,
+  ncpus    = 16L,
   ntasks   = 1L,
   chunks.as.arrayjobs = TRUE
 ), reg = reg)
 
-batchtools::waitForJobs(reg = reg)
 batchtools::getStatus(reg = reg)
-jobs.after <- batchtools::getJobTable(reg = reg)
-table(jobs.after$error)
-
-ids <- jobs.after[!is.na(done) & is.na(error), job.id]
-bmr <- mlr3batchmark::reduceResultsBatchmark(ids, reg = reg)
-score.dt <- bmr$score(poisson_measure)
-
-aggregate_results <- score.dt[, .(
-  mean_deviance = mean(regr.poisson_deviance, na.rm = TRUE),
-  sd_deviance   = sd(regr.poisson_deviance, na.rm = TRUE),
-  n_iterations  = .N
-), by = .(learner_id)]
-fwrite(aggregate_results, file.path(bmr_dir, paste0(dataname, ".csv")))
-save(bmr, file = file.path(bmr_dir, paste0(dataname, ".RData")))
+cat("Jobs submitted. Run collect_results.R", dataname, "to reduce results.\n")

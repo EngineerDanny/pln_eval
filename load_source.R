@@ -165,13 +165,14 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
           t$data(cols = c(t$target_names, t$feature_names)),
           rownames.force = TRUE
         )
+        torch::torch_set_num_threads(16L)
         list(
           model         = PLN(
             Abundance ~ 1,
             data    = pln_prepare_counts(counts, offset_scheme),
             control = PLN_param(
               covariance = pv$covariance, trace = 0L, backend = pv$backend,
-              config_optim = if (pv$backend == "torch") list(algorithm = "ADAM", lr = 0.01) else list()
+              config_optim = if (pv$backend == "torch") list(algorithm = "ADAM", lr = 0.01, numepoch = 5000L) else list()
             )
           ),
           feature_names = t$feature_names
