@@ -165,7 +165,7 @@ LearnerRegrPLN <- R6::R6Class("LearnerRegrPLN",
           t$data(cols = c(t$target_names, t$feature_names)),
           rownames.force = TRUE
         )
-        torch::torch_set_num_threads(16L)
+        torch::torch_set_num_threads(1L)
         list(
           model         = PLN(
             Abundance ~ 1,

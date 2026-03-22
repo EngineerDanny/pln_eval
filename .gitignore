@@ -15,3 +15,4 @@ worker_setup.R
 .Rhistory
 *data
 *.log
+*.out
