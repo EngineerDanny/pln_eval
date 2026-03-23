@@ -1,22 +1,52 @@
+
+#datanames <- c("amgut2_297_samples", "ioral_86_samples", "baxter_crc_490_samples") # PLN better
+#datanames <- c("crohns_100_samples", "amgut1_289_samples", "mixmpln_195_samples") # Glmnet better
+#datanames <- c("hmp2prot_47_samples", "hmp216S_47_samples")
+
 library(data.table)
 library(ggplot2)
+library(ggrepel)
 
+dataset_info <- data.table(
+  dataset = c("hmp2prot_47_samples", "hmp216S_47_samples"),
+  dataset_name = c("hmp2prot", "hmp216S"),
+  N = c(47, 47),
+  D = c(43, 45)
+)
 
-datanames <- c( "amgut2_06_20", "ioral_06_22","baxter_crc_06_22", 
-                "amgut1_06_20", "hmpv35_06_20", "mixmpln_06_22")
+dataset_info <- data.table(
+  dataset = c( "hmp216S_47_samples"),
+  dataset_name = c("hmp216S"),
+  N = c(47),
+  D = c( 45)
+)
 
-datanames <- c( "crohns_06_22", "amgut1_06_20", "hmpv35_06_20")
+#dataset_info <- data.table(
+#  dataset = c("crohns_100_samples", "amgut1_289_samples", "mixmpln_195_samples"),
+#  dataset_name = c("crohns", "amgut1", "mixmpln"),
+#  N = c(100, 289, 195),
+#  D = c(5, 127, 129)
+#)
+
+#dataset_info <- data.table(
+#  dataset = c("amgut2_297_samples", "ioral_86_samples", "baxter_crc_490_samples"),
+#  dataset_name = c("amgut2", "ioral", "baxter_crc"),
+#  N = c(296, 86, 490),
+#  D = c(138, 63, 117)
+#)
 plot_data_list <- list()
-for(i in 1:length(datanames)) {
-  temp_data <- fread(paste0("/projects/genomic-ml/da2343/PLN/pln_eval/data/plot_data/", datanames[i], ".csv"))
-  temp_data[, dataset := datanames[i]]
+for(i in 1:nrow(dataset_info)) {
+  temp_data <- fread(paste0("/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/", dataset_info$dataset[i], ".csv"))
+  temp_data[, dataset := dataset_info$dataset[i]]
   plot_data_list[[i]] <- temp_data
 }
 plot_data <- rbindlist(plot_data_list)
 plot_data[, algorithm := fcase(
   learner_id == "regr.featureless", "Featureless",
   learner_id == "regr.cv_glmnet", "GLMNet (Poisson)",
-  learner_id == "regr.pln", "PLN"
+  learner_id == "regr.pln", "PLN",
+  learner_id == "regr.pln_network.tuned", "PLN Network",
+  learner_id == "regr.plnpca.tuned", "PLN PCA"
 )]
 score_summary <- plot_data[, .(
   mean_deviance = mean(regr.poisson_deviance),
@@ -24,80 +54,48 @@ score_summary <- plot_data[, .(
   n = .N
 ), by = .(algorithm, dataset)]
 score_summary[, `:=`(
-  lower_ci = mean_deviance - sd_deviance,
-  upper_ci = mean_deviance + sd_deviance,
-  label = sprintf("%.3f", mean_deviance)
+  lower_std = mean_deviance - sd_deviance,
+  upper_std = mean_deviance + sd_deviance,
+  label = sprintf("%.2f", mean_deviance)
 )]
-p_values <- data.table()
-for(ds in datanames) {
-  baseline_values <- plot_data[learner_id == "regr.featureless" & dataset == ds, regr.poisson_deviance]
-  for (alg in c("regr.cv_glmnet", "regr.pln")) {
-    alg_values <- plot_data[learner_id == alg & dataset == ds, regr.poisson_deviance]
-    
-    if (length(alg_values) == length(baseline_values)) {
-      t_result <- t.test(alg_values, baseline_values, paired = TRUE)
-    } else {
-      t_result <- t.test(alg_values, baseline_values, paired = FALSE)
-    }
-    
-    clean_alg <- ifelse(alg == "regr.cv_glmnet", "GLMNet (Poisson)", "PLN")
-    
-    p_values <- rbind(p_values, data.table(
-      algorithm = clean_alg,
-      dataset = ds,
-      p_value = t_result$p.value
-    ))
-  }
-  p_values <- rbind(p_values, data.table(
-    algorithm = "Featureless",
-    dataset = ds,
-    p_value = 1.0
-  ))
-}
-score_summary <- merge(score_summary, p_values, by = c("algorithm", "dataset"))
-score_summary$dataset <- factor(score_summary$dataset, levels = datanames)
+score_summary <- merge(score_summary, dataset_info, by = "dataset")
+score_summary$dataset <- factor(score_summary$dataset, levels = dataset_info$dataset)
 score_summary[, dataset_clean := gsub("_06_20|_06_22", "", dataset)]
-score_summary$dataset_clean <- factor(score_summary$dataset_clean, levels = gsub("_06_20|_06_22", "", datanames))
-score_summary[, p_value_label := fcase(
-  p_value >= 1.0, "",
-  p_value < 0.001, "p < 0.001",
-  p_value < 0.01, "p < 0.01", 
-  p_value < 0.05, "p < 0.05",
-  default = paste0("p = ", round(p_value, 3))
-)]
-algorithm_order <- c("Featureless", "GLMNet (Poisson)", "PLN")
+score_summary[, dataset_label := paste0("data: ", dataset_name, "\nN=", N, ", D=", D)]
+score_summary$dataset_clean <- factor(score_summary$dataset_clean, levels = gsub("_06_20|_06_22", "", dataset_info$dataset))
+algorithm_order <- c("Featureless", "GLMNet (Poisson)", "PLN", "PLN Network", "PLN PCA")
 score_summary$algorithm <- factor(score_summary$algorithm, levels = algorithm_order)
-score_summary[, is_pln := algorithm == "PLN"]
+score_summary[, is_pln := algorithm %in% c("PLN", "PLN Network", "PLN PCA")]
 gg <- ggplot(score_summary, aes(x = mean_deviance, y = algorithm)) +
-  geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci, color = is_pln), 
-                 height = 0.1, linewidth = 0.5) +
-  geom_point(aes(color = is_pln), size = 1) +
-  geom_text(aes(label = label, color = is_pln), 
-            vjust = 1.8, size = 3.5) +
-  geom_text(data = score_summary[p_value_label != ""], 
-            aes(label = p_value_label, color = is_pln), 
-            vjust = -1.1, size = 3, fontface = "italic") +
-  scale_color_manual(values = c("black", "red"), 
-                     labels = c("Other Methods", "PLN")) +
-  facet_wrap(~ dataset_clean, nrow = 2, ncol = 3) +
+  geom_errorbarh(aes(xmin = lower_std, xmax = upper_std), 
+                 height = 0.1, linewidth = 0.3) +
+  geom_point( shape = 1, size = 0.7) +
+  geom_text(aes(label = label), 
+            nudge_x = 0.2, 
+            hjust = 0,
+            size = 1.5) +
+  facet_wrap(~ dataset_label, nrow = 2, ncol = 3, scales = "free_x") +
   labs(
-    #title = "PLN Shows Consistent Superior Performance Across Datasets",
-    title = "GLMNet marginally outperforms PLN",
+    title = "PLN PCA outperforms others",
+    #title = "GLMNet (Poisson) marginally outperforms PLN",
+    #title = "PLN models outperform GLMNet (Poisson)",
     x = "Mean Poisson Deviance (95% CI)",
     y = "Algorithm"
   ) +
-  theme_bw() +
+  scale_x_continuous(expand = expansion(mult = c(0.05, 0.25))) +
   theme(
-    axis.text.y = element_text(
-      color = ifelse(levels(score_summary$algorithm) == "PLN", "red", "black")
-    ),
-    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(color = "black", size = 5),
+    axis.text.x = element_text(size = 5),
+    strip.text = element_text(size = 6),
+    axis.title = element_text(size = 6),
+    plot.title = element_text(size = 7),
     panel.grid.minor = element_blank(),
     legend.position = "none"
   )
-ggsave("/projects/genomic-ml/da2343/PLN/pln_eval/out/2_bmr.png",
+ggsave(
+       "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/PLN_special_bmr.png",
+       #"/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/glmnet_outperforms_bmr.png",
        plot = gg,
-       width = 8, 
-       #height = 4,
-       height = 3,
+       width = 3, #4, 
+       height = 1.4, #1.4,
        dpi = 300)

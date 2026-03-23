@@ -12,3 +12,7 @@ environment.yml
 .Rprofile
 worker_setup.R
 .Renviron
+.Rhistory
+*data
+*.log
+*.out
