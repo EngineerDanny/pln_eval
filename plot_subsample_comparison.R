@@ -61,7 +61,8 @@ make_subsample_plot <- function(dataset_prefix, dataset_label, sample_sizes, bmr
 }
 
 bmr_dir <- file.path(base_dir, "bmr")
-out_dir <- file.path(base_dir, "out")
+out_dir <- file.path(base_dir, "figures")
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 make_subsample_plot("deblur_125nt_no_blooms_family", "Deblur_family",
                     c(100, 500, 1000, 2000), bmr_dir, out_dir)

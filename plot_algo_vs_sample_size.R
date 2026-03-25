@@ -1,7 +1,9 @@
 library(data.table)
 library(ggplot2)
 
-#sample_sizes <- c(30, 50, 100, 200, 289)
+figures_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/figures"
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+
 sample_sizes <- c(30, 50, 100, 200, 297)
 plot_data_list <- list()
 
@@ -34,7 +36,7 @@ gg <- ggplot(plot_data, aes(x = factor(n_samples), y = deviance, fill = algorith
     panel.grid.major.x = element_blank()
   )
 
-ggsave("/projects/genomic-ml/da2343/PLN/pln_eval/out/amgut2_boxplot_jittered_refined_09_11.png",
+ggsave(file.path(figures_dir, "amgut2_boxplot_jittered_refined_09_11.png"),
        plot = gg,
        width = 8.5,
        height = 4.6,
