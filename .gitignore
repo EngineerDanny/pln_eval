@@ -16,3 +16,4 @@ worker_setup.R
 *data
 *.log
 *.out
+*.err
