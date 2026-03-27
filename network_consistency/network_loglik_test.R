@@ -3,8 +3,79 @@ library(PLNmodels)
 library(glassoFast)
 library(glmnet)
 
+args <- commandArgs(trailingOnly = TRUE)
 base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
-out_dir <- file.path(base_dir, "out", "network_graph")
+data_dir <- file.path(base_dir, "data")
+
+load_counts <- function(dataname_or_path, data_dir) {
+  if (grepl("\\.tsv\\.gz$", dataname_or_path)) {
+    if (file.exists(dataname_or_path)) {
+      tsv_path <- dataname_or_path
+    } else {
+      tsv_path <- file.path(data_dir, dataname_or_path)
+    }
+    if (!file.exists(tsv_path)) stop("File not found: ", dataname_or_path)
+    raw <- read.table(
+      gzfile(tsv_path),
+      sep = "\t",
+      header = TRUE,
+      row.names = 1,
+      check.names = FALSE
+    )
+    counts <- t(as.matrix(raw))
+    return(counts[rowSums(counts) > 0, colSums(counts) > 0, drop = FALSE])
+  }
+
+  if (grepl("\\.csv$", dataname_or_path)) {
+    if (file.exists(dataname_or_path)) {
+      csv_path <- dataname_or_path
+    } else {
+      csv_path <- file.path(data_dir, dataname_or_path)
+    }
+    if (!file.exists(csv_path)) stop("File not found: ", dataname_or_path)
+    dt <- fread(csv_path)
+    if ("Group_ID" %in% names(dt)) dt[, Group_ID := NULL]
+    return(as.matrix(dt))
+  }
+
+  tsv_path <- list.files(
+    data_dir,
+    pattern = paste0(dataname_or_path, ".*\\.tsv\\.gz$"),
+    recursive = TRUE,
+    full.names = TRUE
+  )
+  csv_path <- file.path(data_dir, paste0(dataname_or_path, "_update.csv"))
+
+  if (length(tsv_path) > 0) {
+    raw <- read.table(
+      gzfile(tsv_path[1]),
+      sep = "\t",
+      header = TRUE,
+      row.names = 1,
+      check.names = FALSE
+    )
+    counts <- t(as.matrix(raw))
+    return(counts[rowSums(counts) > 0, colSums(counts) > 0, drop = FALSE])
+  }
+  if (file.exists(csv_path)) {
+    dt <- fread(csv_path)
+    if ("Group_ID" %in% names(dt)) dt[, Group_ID := NULL]
+    return(as.matrix(dt))
+  }
+
+  stop("No data file found for: ", dataname_or_path)
+}
+
+dataset_arg <- if (length(args) >= 1) args[1] else "amgut2_update.csv"
+dataset_tag <- if (grepl("\\.tsv\\.gz$", dataset_arg)) {
+  gsub("\\.tsv\\.gz$", "", basename(dataset_arg))
+} else if (grepl("\\.csv$", dataset_arg)) {
+  gsub("\\.csv$", "", basename(dataset_arg))
+} else {
+  dataset_arg
+}
+
+out_dir <- file.path(base_dir, "out", "network_graph", dataset_tag)
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 pln_prepare_counts <- function(counts) {
@@ -16,6 +87,36 @@ pln_prepare_counts <- function(counts) {
     ),
     offset = "none"
   )
+}
+
+omega_to_edge_dt <- function(Omega, taxa, rep_id, method) {
+  idx <- which(upper.tri(Omega) & Omega != 0, arr.ind = TRUE)
+  if (nrow(idx) == 0L) {
+    return(data.table(
+      rep = integer(),
+      method = character(),
+      taxon_i = character(),
+      taxon_j = character(),
+      i = integer(),
+      j = integer(),
+      weight = numeric(),
+      abs_weight = numeric(),
+      sign = character()
+    ))
+  }
+
+  weights <- Omega[idx]
+  data.table(
+    rep = rep_id,
+    method = method,
+    taxon_i = taxa[idx[, 1]],
+    taxon_j = taxa[idx[, 2]],
+    i = idx[, 1],
+    j = idx[, 2],
+    weight = weights,
+    abs_weight = abs(weights),
+    sign = ifelse(weights > 0, "positive", "negative")
+  )[order(-abs_weight)]
 }
 
 fit_pln_glasso <- function(X_train_raw) {
@@ -114,9 +215,7 @@ fit_loto_pln_glasso <- function(X_train_raw, X_train_log, rho_grid_len = 12L) {
 }
 
 ## ── Setup ──────────────────────────────────────────────────────
-counts_full <- as.matrix(read.csv(
-  file.path(base_dir, "data", "amgut2_update.csv")
-))
+counts_full <- load_counts(dataset_arg, data_dir)
 col_sums <- colSums(counts_full)
 top_taxa <- order(col_sums, decreasing = TRUE)
 X_raw <- counts_full[, top_taxa]
@@ -126,7 +225,7 @@ rownames(X_log) <- rownames(X_raw)
 
 n_total <- nrow(X_log)
 p <- ncol(X_log)
-cat(sprintf("Data: %d samples, %d taxa (log1p)\n", n_total, p))
+cat(sprintf("Data: %s | %d samples, %d taxa (log1p)\n", dataset_tag, n_total, p))
 
 ## ── Parameters ─────────────────────────────────────────────────
 n_reps     <- 2
@@ -177,6 +276,7 @@ loto_to_omega <- function(coef_matrix, sigma_diag) {
 
 ## ── Run replicates ─────────────────────────────────────────────
 results_list <- list()
+edge_results <- list()
 
 for (r in 1:n_reps) {
   cat(sprintf("\n=== Replicate %d ===\n", r))
@@ -233,6 +333,22 @@ for (r in 1:n_reps) {
   omega0_diag <- diag(1 / apply(X_train, 2, var))
   ll0_diag <- held_out_pseudologlik(omega0_diag, mu_train, X_test)
 
+  omega_map <- list(
+    Baseline_diagonal = omega0_diag,
+    PLN_glasso = omega1,
+    LOTO_PLN_glasso = omega2,
+    LOTO_glmnet_CV1se = omega3
+  )
+
+  for (method_name in names(omega_map)) {
+    edge_results[[length(edge_results) + 1L]] <- omega_to_edge_dt(
+      omega_map[[method_name]],
+      taxa = colnames(X_train),
+      rep_id = r,
+      method = method_name
+    )
+  }
+
   results_list[[r]] <- data.table(
     rep    = r,
     method = c(
@@ -248,6 +364,7 @@ for (r in 1:n_reps) {
 
 ## ── Summary ────────────────────────────────────────────────────
 all_results <- rbindlist(results_list)
+edge_dt <- rbindlist(edge_results, fill = TRUE)
 summary_dt <- all_results[, .(
   mean_loglik = round(mean(loglik), 3),
   sd_loglik   = round(sd(loglik), 3),
@@ -262,6 +379,10 @@ fwrite(
   summary_dt,
   file.path(out_dir, "network_graph_pseudologlik_summary.csv")
 )
+fwrite(
+  edge_dt,
+  file.path(out_dir, "network_graph_edges.csv")
+)
 
 cat("\n=== Per-replicate results ===\n")
 print(dcast(all_results, method ~ rep, value.var = "loglik"))
@@ -271,4 +392,5 @@ print(summary_dt[order(-mean_loglik)])
 cat("\nSaved:\n")
 cat(file.path(out_dir, "network_graph_pseudologlik_replicates.csv"), "\n")
 cat(file.path(out_dir, "network_graph_pseudologlik_summary.csv"), "\n")
+cat(file.path(out_dir, "network_graph_edges.csv"), "\n")
 cat("\nDone.\n")
