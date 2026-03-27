@@ -53,7 +53,7 @@ Suggested format:
   - paired p-value from the saved benchmark object
 
 Current script:
-- [plot_case_study_benchmark.R](/projects/genomic-ml/da2343/PLN/pln_eval/plot_case_study_benchmark.R)
+- [plot_case_study_benchmark.R](/projects/genomic-ml/da2343/PLN/pln_eval/plot_scripts/plot_case_study_benchmark.R)
 
 Current figure:
 - [pln_case_study_benchmark_4datasets.png](/projects/genomic-ml/da2343/PLN/pln_eval/figures/pln_case_study_benchmark_4datasets.png)
