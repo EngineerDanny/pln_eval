@@ -17,3 +17,5 @@ worker_setup.R
 *.log
 *.out
 *.err
+*.txt
+*.tsv
