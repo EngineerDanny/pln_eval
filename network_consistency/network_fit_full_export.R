@@ -210,15 +210,44 @@ fit_loto_pln_glasso <- function(X_train_raw, X_train_log, rho_grid_len = 12L) {
   )
 }
 
+safe_glmnet_coefs <- function(x_train, y_train) {
+  p_minus_1 <- ncol(x_train)
+  zero_coefs <- rep(0, p_minus_1)
+  if (p_minus_1 == 0L) return(zero_coefs)
+  if (length(unique(y_train)) < 2L) return(zero_coefs)
+
+  x_train <- as.matrix(x_train)
+  cv_nfolds <- max(3L, min(5L, nrow(x_train)))
+
+  fit <- tryCatch(
+    cv.glmnet(
+      x_train,
+      y_train,
+      family = "poisson",
+      alpha = 1,
+      nfolds = cv_nfolds
+    ),
+    error = function(e) NULL
+  )
+
+  if (is.null(fit)) return(zero_coefs)
+
+  coefs <- tryCatch(
+    as.numeric(coef(fit, s = "lambda.1se")[-1]),
+    error = function(e) zero_coefs
+  )
+
+  if (length(coefs) != p_minus_1) return(zero_coefs)
+  coefs
+}
+
 fit_loto_glmnet <- function(X_train_raw, X_train_log) {
   p <- ncol(X_train_raw)
   coef_mat <- matrix(0, p, p)
   for (j in seq_len(p)) {
     y_train <- X_train_raw[, j]
     x_train <- X_train_log[, -j, drop = FALSE]
-    cvfit <- cv.glmnet(x_train, y_train, family = "poisson", alpha = 1)
-    coefs <- as.numeric(coef(cvfit, s = "lambda.1se")[-1])
-    coef_mat[j, -j] <- coefs
+    coef_mat[j, -j] <- safe_glmnet_coefs(x_train, y_train)
   }
   sigma_diag <- apply(X_train_log, 2, var)
   list(

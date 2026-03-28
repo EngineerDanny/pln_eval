@@ -7,6 +7,22 @@ args <- commandArgs(trailingOnly = TRUE)
 base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
 data_dir <- file.path(base_dir, "data")
 
+read_dataset_spec <- function(dataset_spec) {
+  if (length(dataset_spec) != 1L || !nzchar(dataset_spec)) {
+    stop("dataset_spec must be a non-empty string")
+  }
+
+  if (file.exists(dataset_spec) && grepl("\\.(txt|list|lst)$", dataset_spec)) {
+    lines <- trimws(readLines(dataset_spec, warn = FALSE))
+    lines <- lines[nzchar(lines)]
+    lines <- lines[!grepl("^#", lines)]
+    if (length(lines) == 0L) stop("No datasets found in: ", dataset_spec)
+    return(lines)
+  }
+
+  dataset_spec
+}
+
 load_counts <- function(dataname_or_path, data_dir) {
   if (grepl("\\.tsv\\.gz$", dataname_or_path)) {
     if (file.exists(dataname_or_path)) {
@@ -66,7 +82,33 @@ load_counts <- function(dataname_or_path, data_dir) {
   stop("No data file found for: ", dataname_or_path)
 }
 
-dataset_arg <- if (length(args) >= 1) args[1] else "amgut2_update.csv"
+dataset_spec <- if (length(args) >= 1) args[1] else "amgut2_update.csv"
+task_id <- if (length(args) >= 2) as.integer(args[2]) else {
+  as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID", "1"))
+}
+if (!is.finite(task_id) || task_id < 1L) stop("Invalid task_id")
+
+dataset_values <- read_dataset_spec(dataset_spec)
+n_datasets <- length(dataset_values)
+n_folds <- 3L
+methods <- c(
+  "Baseline_diagonal",
+  "PLN_glasso",
+  "LOTO_PLN_glasso",
+  "LOTO_glmnet_CV1se"
+)
+n_methods <- length(methods)
+n_tasks <- n_datasets * n_folds * n_methods
+if (task_id > n_tasks) stop("task_id exceeds number of tasks: ", n_tasks)
+
+dataset_id <- ((task_id - 1L) %/% (n_folds * n_methods)) + 1L
+within_dataset_id <- ((task_id - 1L) %% (n_folds * n_methods)) + 1L
+fold_id <- ((within_dataset_id - 1L) %/% n_methods) + 1L
+method_id <- ((within_dataset_id - 1L) %% n_methods) + 1L
+
+dataset_arg <- dataset_values[dataset_id]
+method_name <- methods[method_id]
+
 dataset_tag <- if (grepl("\\.tsv\\.gz$", dataset_arg)) {
   gsub("\\.tsv\\.gz$", "", basename(dataset_arg))
 } else if (grepl("\\.csv$", dataset_arg)) {
@@ -76,7 +118,8 @@ dataset_tag <- if (grepl("\\.tsv\\.gz$", dataset_arg)) {
 }
 
 out_dir <- file.path(base_dir, "out", "network_graph", dataset_tag)
-dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+task_dir <- file.path(out_dir, "cv3_tasks")
+dir.create(task_dir, recursive = TRUE, showWarnings = FALSE)
 
 pln_prepare_counts <- function(counts) {
   prepare_data(
@@ -89,7 +132,7 @@ pln_prepare_counts <- function(counts) {
   )
 }
 
-omega_to_edge_dt <- function(Omega, taxa, rep_id, method) {
+omega_to_edge_dt <- function(Omega, taxa, fold_id, method) {
   idx <- which(upper.tri(Omega) & Omega != 0, arr.ind = TRUE)
   if (nrow(idx) == 0L) {
     return(data.table(
@@ -107,7 +150,7 @@ omega_to_edge_dt <- function(Omega, taxa, rep_id, method) {
 
   weights <- Omega[idx]
   data.table(
-    rep = rep_id,
+    rep = fold_id,
     method = method,
     taxon_i = taxa[idx[, 1]],
     taxon_j = taxa[idx[, 2]],
@@ -149,10 +192,22 @@ fit_pln_glasso <- function(X_train_raw) {
   }
 
   gl_best <- glassoFast(sigma_pln, rho = best_rho)
-  list(
-    omega = gl_best$wi,
-    best_rho = best_rho
-  )
+  list(omega = gl_best$wi, best_rho = best_rho)
+}
+
+loto_to_omega <- function(coef_matrix, sigma_diag) {
+  p <- nrow(coef_matrix)
+  Omega <- matrix(0, p, p)
+  for (j in seq_len(p)) {
+    Omega[j, j] <- 1 / sigma_diag[j]
+    for (k in which(coef_matrix[j, ] != 0)) {
+      Omega[j, k] <- -coef_matrix[j, k] * Omega[j, j]
+    }
+  }
+  Omega <- (Omega + t(Omega)) / 2
+  eig <- eigen(Omega, symmetric = TRUE)
+  eig$values <- pmax(eig$values, 1e-6)
+  eig$vectors %*% diag(eig$values) %*% t(eig$vectors)
 }
 
 fit_loto_pln_glasso <- function(X_train_raw, X_train_log, rho_grid_len = 12L) {
@@ -203,7 +258,6 @@ fit_loto_pln_glasso <- function(X_train_raw, X_train_log, rho_grid_len = 12L) {
     }
 
     if (is.null(best_omega)) next
-
     coef_mat[target_idx, setdiff(seq_len(p), target_idx)] <- -best_omega[1, -1] / best_omega[1, 1]
     sigma_diag[target_idx] <- 1 / best_omega[1, 1]
   }
@@ -214,25 +268,35 @@ fit_loto_pln_glasso <- function(X_train_raw, X_train_log, rho_grid_len = 12L) {
   )
 }
 
-## ── Setup ──────────────────────────────────────────────────────
-counts_full <- load_counts(dataset_arg, data_dir)
-col_sums <- colSums(counts_full)
-top_taxa <- order(col_sums, decreasing = TRUE)
-X_raw <- counts_full[, top_taxa]
-X_log <- log1p(X_raw)
-rownames(X_raw) <- paste0("S", seq_len(nrow(X_raw)))
-rownames(X_log) <- rownames(X_raw)
+safe_glmnet_coefs <- function(x_train, y_train) {
+  p_minus_1 <- ncol(x_train)
+  zero_coefs <- rep(0, p_minus_1)
+  if (p_minus_1 == 0L) return(zero_coefs)
+  if (length(unique(y_train)) < 2L) return(zero_coefs)
 
-n_total <- nrow(X_log)
-p <- ncol(X_log)
-cat(sprintf("Data: %s | %d samples, %d taxa (log1p)\n", dataset_tag, n_total, p))
+  x_train <- as.matrix(x_train)
+  cv_nfolds <- max(3L, min(5L, nrow(x_train)))
 
-## ── Parameters ─────────────────────────────────────────────────
-n_reps     <- 2
-n_train    <- 200
-set.seed(42)
+  fit <- tryCatch(
+    cv.glmnet(
+      x_train,
+      y_train,
+      family = "poisson",
+      alpha = 1,
+      nfolds = cv_nfolds
+    ),
+    error = function(e) NULL
+  )
+  if (is.null(fit)) return(zero_coefs)
 
-## ── Held-out pseudo-likelihood under multivariate Gaussian ─────
+  coefs <- tryCatch(
+    as.numeric(coef(fit, s = "lambda.1se")[-1]),
+    error = function(e) zero_coefs
+  )
+  if (length(coefs) != p_minus_1) return(zero_coefs)
+  coefs
+}
+
 held_out_pseudologlik <- function(Omega, mu, X_test) {
   X_centered <- sweep(X_test, 2, mu)
   p <- ncol(X_test)
@@ -241,7 +305,6 @@ held_out_pseudologlik <- function(Omega, mu, X_test) {
   for (j in seq_len(p)) {
     omega_jj <- Omega[j, j]
     if (!is.finite(omega_jj) || omega_jj <= 0) return(NA_real_)
-
     cond_mean <- -X_centered[, -j, drop = FALSE] %*% Omega[-j, j] / omega_jj
     resid <- X_centered[, j] - as.vector(cond_mean)
     cond_ll[j] <- mean(
@@ -252,145 +315,76 @@ held_out_pseudologlik <- function(Omega, mu, X_test) {
   mean(cond_ll)
 }
 
-## ── LOTO: reconstruct precision matrix from neighborhood coefs ─
-# For each taxon j, coef vector beta_j gives regression on others.
-# Reconstruct Omega using: Omega[j,-j] = -beta_j * Omega[j,j]
-# We use a simple symmetrized approach from the AND-rule adjacency.
-loto_to_omega <- function(coef_matrix, sigma_diag) {
-  p <- nrow(coef_matrix)
-  Omega <- matrix(0, p, p)
-  for (j in 1:p) {
-    Omega[j, j] <- 1 / sigma_diag[j]
-    for (k in which(coef_matrix[j, ] != 0)) {
-      Omega[j, k] <- -coef_matrix[j, k] * Omega[j, j]
-    }
-  }
-  # Symmetrize
-  Omega <- (Omega + t(Omega)) / 2
-  # Ensure positive definite
-  eig <- eigen(Omega, symmetric = TRUE)
-  eig$values <- pmax(eig$values, 1e-6)
-  Omega_pd <- eig$vectors %*% diag(eig$values) %*% t(eig$vectors)
-  Omega_pd
-}
+counts_full <- load_counts(dataset_arg, data_dir)
+col_sums <- colSums(counts_full)
+top_taxa <- order(col_sums, decreasing = TRUE)
+X_raw <- counts_full[, top_taxa, drop = FALSE]
+X_log <- log1p(X_raw)
+rownames(X_raw) <- paste0("S", seq_len(nrow(X_raw)))
+rownames(X_log) <- rownames(X_raw)
 
-## ── Run replicates ─────────────────────────────────────────────
-results_list <- list()
-edge_results <- list()
+n_total <- nrow(X_log)
+p <- ncol(X_log)
+cat(sprintf("Data: %s | %d samples, %d taxa (log1p)\n", dataset_tag, n_total, p))
 
-for (r in 1:n_reps) {
-  cat(sprintf("\n=== Replicate %d ===\n", r))
-  train_idx <- sample(n_total, n_train)
-  test_idx  <- setdiff(1:n_total, train_idx)
+set.seed(42)
+fold_assign <- sample(rep(seq_len(n_folds), length.out = n_total))
+train_idx <- which(fold_assign != fold_id)
+test_idx <- which(fold_assign == fold_id)
 
-  X_train_raw <- X_raw[train_idx, ]
-  X_train <- X_log[train_idx, ]
-  X_test  <- X_log[test_idx, ]
-  mu_train <- colMeans(X_train)
+X_train_raw <- X_raw[train_idx, , drop = FALSE]
+X_train <- X_log[train_idx, , drop = FALSE]
+X_test <- X_log[test_idx, , drop = FALSE]
+mu_train <- colMeans(X_train)
 
-  ## ── Method 1: PLN + glasso ───────────────────────────────────
-  cat("  PLN+glasso... ")
-  t1 <- proc.time()
-  fit1 <- fit_pln_glasso(X_train_raw)
-  omega1 <- fit1$omega
-  ll1 <- held_out_pseudologlik(omega1, mu_train, X_test)
-  n_edges1 <- sum(omega1[upper.tri(omega1)] != 0)
-  t1e <- (proc.time() - t1)["elapsed"]
-  cat(sprintf(
-    "loglik=%.2f, edges=%d, rho=%.4f, time=%.1fs\n",
-    ll1, n_edges1, fit1$best_rho, t1e
-  ))
+cat(sprintf(
+  "Task %d/%d | dataset=%d/%d | fold=%d | method=%s | train=%d | test=%d\n",
+  task_id, n_tasks, dataset_id, n_datasets, fold_id, method_name, length(train_idx), length(test_idx)
+))
 
-  ## ── Method 2: LOTO PLN + glasso ──────────────────────────────
-  cat("  LOTO PLN+glasso... ")
-  t2 <- proc.time()
-  fit2 <- fit_loto_pln_glasso(X_train_raw, X_train)
-  omega2 <- fit2$omega
-  ll2 <- held_out_pseudologlik(omega2, mu_train, X_test)
-  n_edges2 <- sum((fit2$coef_mat != 0 & t(fit2$coef_mat) != 0)[upper.tri(fit2$coef_mat)])
-  t2e <- (proc.time() - t2)["elapsed"]
-  cat(sprintf("loglik=%.2f, edges=%d, time=%.1fs\n", ll2, n_edges2, t2e))
-
-  ## ── Method 3: LOTO glmnet + CV1se ────────────────────────────
-  cat("  LOTO glmnet+CV1se... ")
-  t3 <- proc.time()
+t0 <- proc.time()
+if (method_name == "Baseline_diagonal") {
+  omega <- diag(1 / pmax(apply(X_train, 2, var), 1e-6))
+  n_edges <- 0L
+} else if (method_name == "PLN_glasso") {
+  fit <- fit_pln_glasso(X_train_raw)
+  omega <- fit$omega
+  n_edges <- sum(omega[upper.tri(omega)] != 0)
+} else if (method_name == "LOTO_PLN_glasso") {
+  fit <- fit_loto_pln_glasso(X_train_raw, X_train)
+  omega <- fit$omega
+  n_edges <- sum((fit$coef_mat != 0 & t(fit$coef_mat) != 0)[upper.tri(fit$coef_mat)])
+} else if (method_name == "LOTO_glmnet_CV1se") {
   coef_mat <- matrix(0, p, p)
-  for (j in 1:p) {
-    y_train <- X_raw[train_idx, j]
-    x_train <- X_train[, -j]
-    cvfit <- cv.glmnet(x_train, y_train, family = "poisson", alpha = 1)
-    coefs <- as.numeric(coef(cvfit, s = "lambda.1se")[-1])
-    coef_mat[j, -j] <- coefs
+  for (j in seq_len(p)) {
+    y_train <- X_train_raw[, j]
+    x_train <- X_train[, -j, drop = FALSE]
+    coef_mat[j, -j] <- safe_glmnet_coefs(x_train, y_train)
   }
-  sigma_diag <- apply(X_train, 2, var)
-  omega3 <- loto_to_omega(coef_mat, sigma_diag)
-  ll3 <- held_out_pseudologlik(omega3, mu_train, X_test)
-  n_edges3 <- sum((coef_mat != 0 & t(coef_mat) != 0)[upper.tri(coef_mat)])
-  t3e <- (proc.time() - t3)["elapsed"]
-  cat(sprintf("loglik=%.2f, edges=%d, time=%.1fs\n", ll3, n_edges3, t3e))
-
-  ## ── Baseline: diagonal Omega (independence, no edges) ─────────
-  omega0_diag <- diag(1 / apply(X_train, 2, var))
-  ll0_diag <- held_out_pseudologlik(omega0_diag, mu_train, X_test)
-
-  omega_map <- list(
-    Baseline_diagonal = omega0_diag,
-    PLN_glasso = omega1,
-    LOTO_PLN_glasso = omega2,
-    LOTO_glmnet_CV1se = omega3
-  )
-
-  for (method_name in names(omega_map)) {
-    edge_results[[length(edge_results) + 1L]] <- omega_to_edge_dt(
-      omega_map[[method_name]],
-      taxa = colnames(X_train),
-      rep_id = r,
-      method = method_name
-    )
-  }
-
-  results_list[[r]] <- data.table(
-    rep    = r,
-    method = c(
-      "Baseline_diagonal",
-      "PLN_glasso",
-      "LOTO_PLN_glasso",
-      "LOTO_glmnet_CV1se"
-    ),
-    loglik  = round(c(ll0_diag, ll1, ll2, ll3), 3),
-    n_edges = c(0, n_edges1, n_edges2, n_edges3)
-  )
+  sigma_diag <- pmax(apply(X_train, 2, var), 1e-6)
+  omega <- loto_to_omega(coef_mat, sigma_diag)
+  n_edges <- sum((coef_mat != 0 & t(coef_mat) != 0)[upper.tri(coef_mat)])
+} else {
+  stop("Unknown method: ", method_name)
 }
 
-## ── Summary ────────────────────────────────────────────────────
-all_results <- rbindlist(results_list)
-edge_dt <- rbindlist(edge_results, fill = TRUE)
-summary_dt <- all_results[, .(
-  mean_loglik = round(mean(loglik), 3),
-  sd_loglik   = round(sd(loglik), 3),
-  mean_edges  = round(mean(n_edges), 1)
-), by = method][order(-mean_loglik)]
+loglik <- held_out_pseudologlik(omega, mu_train, X_test)
+elapsed <- (proc.time() - t0)[["elapsed"]]
 
-fwrite(
-  all_results,
-  file.path(out_dir, "network_graph_pseudologlik_replicates.csv")
+result_dt <- data.table(
+  rep = fold_id,
+  method = method_name,
+  loglik = round(loglik, 6),
+  n_edges = n_edges,
+  elapsed_sec = elapsed
 )
-fwrite(
-  summary_dt,
-  file.path(out_dir, "network_graph_pseudologlik_summary.csv")
-)
-fwrite(
-  edge_dt,
-  file.path(out_dir, "network_graph_edges.csv")
-)
+edge_dt <- omega_to_edge_dt(omega, colnames(X_train), fold_id, method_name)
 
-cat("\n=== Per-replicate results ===\n")
-print(dcast(all_results, method ~ rep, value.var = "loglik"))
+result_path <- file.path(task_dir, sprintf("result_fold%02d_%s.csv", fold_id, method_name))
+edge_path <- file.path(task_dir, sprintf("edges_fold%02d_%s.csv", fold_id, method_name))
+fwrite(result_dt, result_path)
+fwrite(edge_dt, edge_path)
 
-cat("\n=== Summary (higher pseudo-loglik = better) ===\n")
-print(summary_dt[order(-mean_loglik)])
-cat("\nSaved:\n")
-cat(file.path(out_dir, "network_graph_pseudologlik_replicates.csv"), "\n")
-cat(file.path(out_dir, "network_graph_pseudologlik_summary.csv"), "\n")
-cat(file.path(out_dir, "network_graph_edges.csv"), "\n")
-cat("\nDone.\n")
+cat("Saved:\n")
+cat(result_path, "\n")
+cat(edge_path, "\n")

@@ -13,7 +13,12 @@ BASE=/projects/genomic-ml/da2343/PLN/pln_eval
 RSCRIPT=/projects/genomic-ml/da2343/soak-r/bin/Rscript
 SCRIPT=$BASE/network_consistency/network_fit_full_export.R
 
-DATASET=${1:-amgut2_update.csv}
+if [[ $# -lt 1 ]]; then
+  echo "Usage: sbatch $0 <dataset> [top_n_taxa|all] [out_tag]"
+  exit 2
+fi
+
+DATASET=$1
 TOP_N=${2:-all}
 OUT_TAG=${3:-}
 
