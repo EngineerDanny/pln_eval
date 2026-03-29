@@ -68,8 +68,4 @@ p <- ggplot(sum_dt, aes(x = method_label, y = mean_improvement_pct)) +
 out_png <- file.path(fig_dir, sprintf("network_graph_score_improvement_pct_%s.png", dataset_tag))
 ggsave(out_png, p, width = 5.2, height = 2.8, dpi = 400)
 
-# PDF for submission
-out_pdf <- file.path(fig_dir, sprintf("network_graph_score_improvement_pct_%s.pdf", dataset_tag))
-ggsave(out_pdf, p, width = 5.2, height = 2.8)
-
 cat(out_png, "\n")
