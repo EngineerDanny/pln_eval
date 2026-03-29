@@ -65,10 +65,10 @@ collect_one_dataset <- function(dataset_arg) {
   }
 
   summary_dt <- all_results[, .(
-    mean_loglik = round(mean(loglik), 3),
-    sd_loglik = round(sd(loglik), 3),
+    mean_score = round(mean(score), 3),
+    sd_score = round(sd(score), 3),
     mean_edges = round(mean(n_edges), 1)
-  ), by = method][order(-mean_loglik)]
+  ), by = method][order(-mean_score)]
 
   fwrite(all_results, file.path(out_dir, "network_graph_pseudologlik_replicates.csv"))
   fwrite(summary_dt, file.path(out_dir, "network_graph_pseudologlik_summary.csv"))

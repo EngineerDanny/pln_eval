@@ -162,6 +162,54 @@ omega_to_edge_dt <- function(Omega, taxa, fold_id, method) {
   )[order(-abs_weight)]
 }
 
+support_to_edge_dt <- function(Omega, support, taxa, fold_id, method) {
+  idx <- which(upper.tri(support), arr.ind = TRUE)
+  if (nrow(idx) == 0L) {
+    return(data.table(
+      rep = integer(),
+      method = character(),
+      taxon_i = character(),
+      taxon_j = character(),
+      i = integer(),
+      j = integer(),
+      weight = numeric(),
+      abs_weight = numeric(),
+      sign = character()
+    ))
+  }
+
+  weights <- Omega[idx]
+  data.table(
+    rep = fold_id,
+    method = method,
+    taxon_i = taxa[idx[, 1]],
+    taxon_j = taxa[idx[, 2]],
+    i = idx[, 1],
+    j = idx[, 2],
+    weight = weights,
+    abs_weight = abs(weights),
+    sign = ifelse(weights > 0, "positive", "negative")
+  )[order(-abs_weight)]
+}
+
+empty_support <- function(p) {
+  matrix(FALSE, p, p)
+}
+
+support_from_precision <- function(Omega, tol = 1e-8) {
+  support <- abs(Omega) > tol
+  diag(support) <- FALSE
+  support | t(support)
+}
+
+support_from_coef_mat <- function(coef_mat, require_mutual = TRUE, tol = 1e-8) {
+  nz <- abs(coef_mat) > tol
+  diag(nz) <- FALSE
+  support <- if (require_mutual) nz & t(nz) else nz | t(nz)
+  diag(support) <- FALSE
+  support
+}
+
 fit_pln_glasso <- function(X_train_raw) {
   n <- nrow(X_train_raw)
   final_model <- PLN(
@@ -297,22 +345,53 @@ safe_glmnet_coefs <- function(x_train, y_train) {
   coefs
 }
 
-held_out_pseudologlik <- function(Omega, mu, X_test) {
-  X_centered <- sweep(X_test, 2, mu)
-  p <- ncol(X_test)
-  cond_ll <- numeric(p)
+evaluate_support_nodewise <- function(X_train, X_test, support, ridge_lambda = 1e-3) {
+  p <- ncol(X_train)
+  coef_mat <- matrix(0, p, p)
+  improvement <- numeric(p)
 
   for (j in seq_len(p)) {
-    omega_jj <- Omega[j, j]
-    if (!is.finite(omega_jj) || omega_jj <= 0) return(NA_real_)
-    cond_mean <- -X_centered[, -j, drop = FALSE] %*% Omega[-j, j] / omega_jj
-    resid <- X_centered[, j] - as.vector(cond_mean)
-    cond_ll[j] <- mean(
-      0.5 * log(omega_jj) - 0.5 * omega_jj * resid^2 - 0.5 * log(2 * pi)
-    )
+    nbrs <- which(support[j, ])
+    y_train <- X_train[, j]
+    y_test <- X_test[, j]
+    baseline_pred <- mean(y_train)
+    mse_base <- mean((y_test - baseline_pred)^2)
+
+    if (length(nbrs) == 0L) {
+      pred_test <- rep(baseline_pred, length(y_test))
+    } else {
+      Xj_train <- as.matrix(X_train[, nbrs, drop = FALSE])
+      Xj_test <- as.matrix(X_test[, nbrs, drop = FALSE])
+      x_mu <- colMeans(Xj_train)
+      y_mu <- mean(y_train)
+      Xj_train_centered <- sweep(Xj_train, 2, x_mu, "-")
+      Xj_test_centered <- sweep(Xj_test, 2, x_mu, "-")
+      y_train_centered <- y_train - y_mu
+
+      XtX <- crossprod(Xj_train_centered)
+      beta <- tryCatch(
+        solve(
+          XtX + diag(ridge_lambda, ncol(Xj_train)),
+          crossprod(Xj_train_centered, y_train_centered)
+        ),
+        error = function(e) rep(0, ncol(Xj_train))
+      )
+      coef_mat[j, nbrs] <- as.numeric(beta)
+      pred_test <- y_mu + as.vector(Xj_test_centered %*% beta)
+    }
+
+    mse_model <- mean((y_test - pred_test)^2)
+    improvement[j] <- if (is.finite(mse_base) && mse_base > 1e-8) {
+      1 - mse_model / mse_base
+    } else {
+      0
+    }
   }
 
-  mean(cond_ll)
+  list(
+    score = mean(improvement),
+    coef_mat = coef_mat
+  )
 }
 
 counts_full <- load_counts(dataset_arg, data_dir)
@@ -335,7 +414,6 @@ test_idx <- which(fold_assign == fold_id)
 X_train_raw <- X_raw[train_idx, , drop = FALSE]
 X_train <- X_log[train_idx, , drop = FALSE]
 X_test <- X_log[test_idx, , drop = FALSE]
-mu_train <- colMeans(X_train)
 
 cat(sprintf(
   "Task %d/%d | dataset=%d/%d | fold=%d | method=%s | train=%d | test=%d\n",
@@ -344,16 +422,13 @@ cat(sprintf(
 
 t0 <- proc.time()
 if (method_name == "Baseline_diagonal") {
-  omega <- diag(1 / pmax(apply(X_train, 2, var), 1e-6))
-  n_edges <- 0L
+  support <- empty_support(p)
 } else if (method_name == "PLN_glasso") {
   fit <- fit_pln_glasso(X_train_raw)
-  omega <- fit$omega
-  n_edges <- sum(omega[upper.tri(omega)] != 0)
+  support <- support_from_precision(fit$omega)
 } else if (method_name == "LOTO_PLN_glasso") {
   fit <- fit_loto_pln_glasso(X_train_raw, X_train)
-  omega <- fit$omega
-  n_edges <- sum((fit$coef_mat != 0 & t(fit$coef_mat) != 0)[upper.tri(fit$coef_mat)])
+  support <- support_from_coef_mat(fit$coef_mat, require_mutual = TRUE)
 } else if (method_name == "LOTO_glmnet_CV1se") {
   coef_mat <- matrix(0, p, p)
   for (j in seq_len(p)) {
@@ -361,24 +436,26 @@ if (method_name == "Baseline_diagonal") {
     x_train <- X_train[, -j, drop = FALSE]
     coef_mat[j, -j] <- safe_glmnet_coefs(x_train, y_train)
   }
-  sigma_diag <- pmax(apply(X_train, 2, var), 1e-6)
-  omega <- loto_to_omega(coef_mat, sigma_diag)
-  n_edges <- sum((coef_mat != 0 & t(coef_mat) != 0)[upper.tri(coef_mat)])
+  support <- support_from_coef_mat(coef_mat, require_mutual = TRUE)
 } else {
   stop("Unknown method: ", method_name)
 }
 
-loglik <- held_out_pseudologlik(omega, mu_train, X_test)
+eval_fit <- evaluate_support_nodewise(X_train, X_test, support)
+n_edges <- sum(support[upper.tri(support)])
+edge_weights <- (eval_fit$coef_mat + t(eval_fit$coef_mat)) / 2
+
+score <- eval_fit$score
 elapsed <- (proc.time() - t0)[["elapsed"]]
 
 result_dt <- data.table(
   rep = fold_id,
   method = method_name,
-  loglik = round(loglik, 6),
+  score = round(score, 6),
   n_edges = n_edges,
   elapsed_sec = elapsed
 )
-edge_dt <- omega_to_edge_dt(omega, colnames(X_train), fold_id, method_name)
+edge_dt <- support_to_edge_dt(edge_weights, support, colnames(X_train), fold_id, method_name)
 
 result_path <- file.path(task_dir, sprintf("result_fold%02d_%s.csv", fold_id, method_name))
 edge_path <- file.path(task_dir, sprintf("edges_fold%02d_%s.csv", fold_id, method_name))
