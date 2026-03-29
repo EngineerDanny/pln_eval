@@ -1,0 +1,109 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage[numbers,sort&compress]{natbib}
+
+\begin{document}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+
+\section{Introduction}
+
+Microbial communities profiled by Next-Generation Sequencing produce count matrices with distinctive statistical properties.
+Observations are nonnegative integers, sparsity is pervasive, variance systematically exceeds the mean, and the number of taxa $D$ routinely exceeds the number of biological samples $N$~\cite{lagkouvardos2016imngs, Kodikara2022}.
+These properties jointly challenge the assumptions of standard Gaussian models and limit the use of conventional Poisson regression, which cannot accommodate residual correlations among taxa or the extra-Poisson variability that arises from unobserved biological heterogeneity~\cite{mcmurdie2014waste, Chiquet2021}.
+
+The Poisson Log-Normal (PLN) model addresses these limitations by introducing a latent Gaussian layer that captures both overdispersion and dependence among taxa within a principled probabilistic framework~\cite{aitchison1989multivariate, Chiquet2021}.
+This latent structure supports a family of downstream analyses, including conditional prediction and the recovery of sparse ecological interaction networks via graphical lasso regularization~\cite{chiquet2019variational}.
+Fitted via scalable variational inference, the PLN family has seen growing adoption in microbiome studies where capturing taxon dependencies is scientifically important~\cite{Chiquet2021, Subedi2025}.
+
+Despite this appeal, PLN models carry a practical cost.
+Estimating a full $D \times D$ latent covariance matrix scales cubically in $D$, making PLN computationally demanding for the large, sparse count tables typical of modern microbiome surveys.
+By contrast, penalized Poisson regression implemented efficiently in \texttt{glmnet}~\cite{Friedman2010} fits each taxon independently using $\ell_1$ regularization, scales near-linearly in $D$, and remains tractable even when $D$ runs into the thousands.
+The fundamental question motivating this work is therefore empirical.
+Under what conditions does PLN's added modeling complexity translate into measurable gains over penalized Poisson regression?
+
+This question has direct practical consequences.
+A researcher analyzing a dataset with $N = 50$ samples and $D = 200$ taxa faces a genuine modeling choice between investing in PLN's joint estimation at computational cost and relying on the faster penalized regression baseline.
+Existing literature provides limited guidance.
+Prior evaluations of PLN variants have largely focused on illustrative case studies, synthetic data, or narrow analytical tasks, assessing goodness of fit on training data rather than held-out predictive performance~\cite{Chiquet2021, Batardiere2025ZIPLN, Chaussard2025PLNTree}.
+As summarized in Table~\ref{tab:related_work}, systematic comparisons against penalized regression baselines on real microbiome data under a unified and reproducible evaluation protocol remain absent from the literature.
+
+The gap is equally acute for network inference.
+PLNNetwork recovers ecological interaction networks by estimating a sparse latent precision matrix~\cite{chiquet2019variational}, while neighbourhood selection via \texttt{GLMNet(Poisson)} offers an alternative route to network recovery without a joint model~\cite{Meinshausen2006, Friedman2010}.
+No study has evaluated these competing approaches against experimentally validated microbial interactions, which are necessary for a principled comparison of edge recovery performance.
+
+In this paper, we present a systematic empirical benchmark addressing both tasks.
+For prediction, we compare PLN and \texttt{GLMNet(Poisson)} across 21 real microbiome datasets under a Leave-One-Taxon-Out five-fold cross-validation scheme~\cite{agyapong2025cross}, evaluating held-out Poisson deviance across a wide range of sample sizes and dimensionalities.
+For network inference, we evaluate PLN with graphical lasso against \texttt{GLMNet} neighbourhood selection using five experimentally validated interaction datasets spanning defined microbial communities and in vivo systems.
+Together, these experiments provide the first unified empirical map of when PLN's latent dependence modeling confers a genuine advantage over penalized Poisson regression.
+
+The remainder of the paper is organized as follows.
+Section~2 reviews related work and situates this study within the existing benchmark literature.
+Section~3 describes the algorithms, datasets, and evaluation protocol.
+Section~4 presents results for prediction and network inference.
+Section~5 discusses computational scaling.
+Section~6 concludes.
+
+\subsection{Count-prediction datasets}
+\label{subsec:count-prediction-datasets}
+
+We evaluated count prediction on a heterogeneous benchmark of 28 microbiome datasets spanning oral, skin, nasal, stool, infant, pediatric, and general gut settings, together with several disease-focused collections including colorectal cancer, inflammatory bowel disease, \textit{Clostridium difficile} infection, HIV, nonalcoholic steatohepatitis, obesity, Parkinson's disease, rheumatoid arthritis, and type~1 diabetes. The retained benchmark set includes feature tables at the family, genus, species, and OTU levels and covers a broad range of sample sizes and feature dimensions. Across datasets, the number of samples ranged from $N=32$ to $N=18{,}364$, the number of features ranged from $D=24$ to $D=373$, and the fraction of zero entries in the benchmarked abundance matrices ranged from $30.64\%$ to $93.01\%$.
+
+The benchmark collection is summarized in Table~\ref{tab:bmr-count-datasets}. For the main manuscript table, we retained the non-redundant dataset variants actually used in the count-prediction analysis and omitted near-duplicate preprocessing variants and very small pilot datasets. Full benchmark identifiers and provenance are preserved in the repository metadata for exact reproducibility.
+
+\begin{longtable}{p{0.24\textwidth}p{0.22\textwidth}p{0.08\textwidth}rrr}
+\caption{Count-prediction datasets included in the BMR benchmark, shown with shortened manuscript-friendly labels. Data sparsity is the percentage of zero entries in the benchmarked abundance matrix. Citation markers refer to the corresponding primary study records or dataset portals. Full dataset identifiers are retained in the repository metadata.}
+\label{tab:bmr-count-datasets}\\
+\toprule
+Dataset & Human system & Level & $N$ & $D$ & Data sparsity (\%) \\
+\midrule
+\endfirsthead
+
+\toprule
+Dataset & Human system & Level & $N$ & $D$ & Data sparsity (\%) \\
+\midrule
+\endhead
+
+\bottomrule
+\endfoot
+
+Castro-Nallar 2015~\cite{CastroNallar2015} & oral & Genus & 32 & 107 & 60.28 \\
+ChngKR 2016~\cite{Chng2016} & skin & Genus & 78 & 211 & 80.66 \\
+HMP 2012~\cite{HMP2012} & nasal & Species & 91 & 222 & 92.72 \\
+HMP16S v13~\cite{HMP2012} & multi-site 16S & Family & 2909 & 159 & 87.20 \\
+American Gut 1~\cite{McDonald2018} & gut citizen science & OTU & 289 & 127 & 30.64 \\
+American Gut 2~\cite{McDonald2018} & gut citizen science & OTU & 297 & 138 & 34.48 \\
+CosteaPI 2017~\cite{Costea2017} & stool enterotypes & Genus & 279 & 179 & 71.73 \\
+MehtaRS 2018~\cite{Mehta2018} & gut longitudinal & Genus & 928 & 183 & 75.72 \\
+Diabimmune Karelia~\cite{Vatanen2016} & infant gut & Family & 1584 & 55 & 53.36 \\
+ShaoY 2019~\cite{Shao2019} & infant gut & Genus & 1644 & 244 & 93.01 \\
+RubelMA 2020~\cite{Rubel2020} & pediatric gut & Species & 175 & 373 & 83.85 \\
+KarlssonFH 2013~\cite{Karlsson2013} & stool T2D & Genus & 145 & 158 & 71.06 \\
+Schubert CDI~\cite{Schubert2014} & stool CDI & Family & 347 & 79 & 79.35 \\
+Lozupone HIV~\cite{Lozupone2013} & gut HIV & Family & 55 & 62 & 65.75 \\
+Gevers 2014 IBD~\cite{Gevers2014} & gut IBD & Family & 285 & 72 & 69.85 \\
+VilaAV 2018~\cite{Vila2018} & gut IBD/IBS & Genus & 355 & 178 & 77.83 \\
+Chan NASH~\cite{Wong2013} & gut NASH & Family & 54 & 24 & 63.12 \\
+Baker NASH/obesity~\cite{Zhu2013} & gut NASH/obesity & Family & 64 & 55 & 56.85 \\
+Ross obesity~\cite{Ross2015} & gut obesity & Genus & 63 & 123 & 67.05 \\
+Zeevi obesity~\cite{Zeevi2015} & gut glycemic response & Family & 820 & 74 & 74.99 \\
+Scheperjans PD~\cite{Scheperjans2015} & gut Parkinson's & Family & 148 & 40 & 63.04 \\
+Littman RA~\cite{Scher2013} & gut arthritis & Family & 114 & 40 & 67.17 \\
+Alkanani T1D~\cite{Alkanani2015} & gut T1D & Family & 112 & 27 & 66.34 \\
+YuJ 2015~\cite{Yu2015} & stool CRC & Genus & 128 & 203 & 72.83 \\
+Baxter CRC~\cite{Baxter2016} & stool CRC & Family & 490 & 92 & 71.71 \\
+Zeller CRC~\cite{Zeller2014} & stool CRC & Family & 129 & 100 & 58.29 \\
+Zhao CRC~\cite{Wang2012} & stool CRC & Genus & 102 & 78 & 77.48 \\
+MBQC integrated OTUs~\cite{MBQC2017} & stool benchmark & Family & 18364 & 257 & 89.46 \\
+
+\end{longtable}
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\end{document}
