@@ -129,27 +129,28 @@ Across these studies, edge-recovery assessment relies on synthetic or statistica
 
 \begin{table}[t]
 \caption{Summary of prior benchmarks of PLN and Poisson algorithms.}
+\centering
 \small
-\begin{tabular}{|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}p{3.6cm}|>{\raggedright\arraybackslash}p{3.6cm}|>{\raggedright\arraybackslash}p{4.6cm}|}
-\hline
-\textbf{Study (year)} & \textbf{Data / setting} & \textbf{Algorithms tested} & \textbf{Evaluation metrics} \\
-\hline
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{4.6cm}}
+\toprule
+Study (year) & Data / setting & Algorithms tested & Evaluation metrics \\
+\midrule
 Kenney et al. (2021)~\cite{Kenney2021PoissonPCA} & Simulations; microbiome example & Poisson PCA, PLN & Subspace recovery (principal angles); robustness to noise and exposure; runtime \\
-\hline
+\midrule
 Chiquet et al. (2021)~\cite{Chiquet2021} & Multiple ecology/microbiome case studies & PLN, PLNPCA, PLNNetwork, PLNMixture & BIC/ICL for model order selection; illustrative fits across tasks; no held-out evaluation \\
-\hline
-Xiao et al. (2022)~\cite{Xiao2022PLNet} & Synthetic count networks; real scRNA-seq data & PLNet, VPLN, latentcor, glasso & AUROC for graph edge recovery; asymptotic consistency rates; runtime \\
-\hline
-Virta \& Artemiou (2023)~\cite{Virta2023PoissonPCA} & Simulations; real species abundance matrix & Poisson PCA, vectorization PCA, matrix-normal methods & Subspace estimation error (principal angles); latent-rank selection accuracy; runtime \\
-\hline
+\midrule
+Xiao et al. (2022)~\cite{Xiao2022PLNet} & Synthetic count networks; real scRNA-seq data & PLNet, VPLN, latentcor, glasso & AUPR/AUC for edge recovery; runtime \\
+\midrule
+Virta \& Artemiou (2023)~\cite{Virta2023PoissonPCA} & Simulations; real count matrices & Poisson PCA, vectorization PCA, matrix-normal methods & Subspace estimation error (principal angles); latent-rank selection accuracy; runtime \\
+\midrule
 Qian et al. (2024)~\cite{Qian2024} & Synthetic microbial communities (5 sizes, 4 topologies) & PLN, MIC, Pearson, Ma et al. & 3-class accuracy for interaction type recovery; topology and size effects \\
-\hline
+\midrule
 Batardi\`ere et al. (2025)~\cite{Batardiere2025ZIPLN} & High-zero simulations; cow microbiome & ZIPLN, PLN & In-sample log-likelihood (ELBO/BIC/AIC); latent dispersion; group discrimination \\
-\hline
+\midrule
 Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human gut microbiome (T2D) & PLN-Tree, mean-field PLN, PLN & ELBO/log-likelihood; Shannon, Simpson, Bray-Curtis diversity; downstream classification accuracy \\
-\hline
-\textbf{This work (2026)} & 28 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Held-out Poisson deviance; F1 against experimental ground truth; 5-fold LOTO-CV; runtime; memory \\
-\hline
+\midrule
+\textbf{This work (2026)} & 28 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Prediction: held-out Poisson deviance under 5-fold LOTO-CV; network inference: F1 against experimental ground truth; runtime; memory \\
+\bottomrule
 \end{tabular}
 \label{tab:related_work}
 \end{table}
@@ -174,24 +175,18 @@ The benchmark collection is summarized in Table~\ref{tab:bmr-count-datasets}.
 For the main manuscript table, we retained the non-redundant dataset variants actually used in the count-prediction analysis and omitted near-duplicate preprocessing variants and very small pilot datasets.
 Full benchmark identifiers and provenance are preserved in the repository metadata for exact reproducibility.
 
-\begin{longtable}{p{0.24\textwidth}p{0.22\textwidth}p{0.08\textwidth}rrr}
+\begin{table}[t]
 \caption{Count-prediction datasets included in the BMR benchmark, shown with shortened manuscript-friendly labels.
 Data sparsity is the percentage of zero entries in the benchmarked abundance matrix.
 Citation markers refer to the corresponding primary study records or dataset portals.
 Full dataset identifiers are retained in the repository metadata.}
-\label{tab:bmr-count-datasets}\\
+\label{tab:bmr-count-datasets}
+\centering
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.08\textwidth}rrr}
 \toprule
 Dataset & Human system & Level & $N$ & $D$ & Data sparsity (\%) \\
 \midrule
-\endfirsthead
-
-\toprule
-Dataset & Human system & Level & $N$ & $D$ & Data sparsity (\%) \\
-\midrule
-\endhead
-
-\bottomrule
-\endfoot
 
 Castro-Nallar 2015~\cite{CastroNallar2015} & oral & Genus & 32 & 107 & 60.28 \\
 ChngKR 2016~\cite{Chng2016} & skin & Genus & 78 & 211 & 80.66 \\
@@ -221,8 +216,9 @@ Baxter CRC~\cite{Baxter2016} & stool CRC & Family & 490 & 92 & 71.71 \\
 Zeller CRC~\cite{Zeller2014} & stool CRC & Family & 129 & 100 & 58.29 \\
 Zhao CRC~\cite{Wang2012} & stool CRC & Genus & 102 & 78 & 77.48 \\
 MBQC integrated OTUs~\cite{MBQC2017} & stool benchmark & Family & 18364 & 257 & 89.46 \\
-
-\end{longtable}
+\bottomrule
+\end{tabular}
+\end{table}
 %% ---- DRAFT CONCEPTUAL FIGURES (for review) ----
 
 
