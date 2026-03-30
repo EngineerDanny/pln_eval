@@ -129,25 +129,26 @@ Across these studies, edge-recovery assessment relies on synthetic or statistica
 
 \begin{table}[t]
 \caption{Summary of prior benchmarks of PLN and Poisson algorithms.}
-\begin{tabular}{|p{2.8cm}|p{3.6cm}|p{3.6cm}|p{4.6cm}|}
+\small
+\begin{tabular}{|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}p{3.6cm}|>{\raggedright\arraybackslash}p{3.6cm}|>{\raggedright\arraybackslash}p{4.6cm}|}
 \hline
 \textbf{Study (year)} & \textbf{Data / setting} & \textbf{Algorithms tested} & \textbf{Evaluation metrics} \\
 \hline
-Kenney et al. (2021)~\cite{Kenney2021PoissonPCA} & Simulations; microbiome example & Poisson PCA, PLN & PC recovery/robustness; runtime \\
+Kenney et al. (2021)~\cite{Kenney2021PoissonPCA} & Simulations; microbiome example & Poisson PCA, PLN & Subspace recovery (principal angles); robustness to noise and exposure; runtime \\
 \hline
-Chiquet et al. (2021)~\cite{Chiquet2021} & Multiple ecology/microbiome case studies & PLN, PLNPCA, PLNNetwork, PLNMixture & Likelihood/deviance summaries; qualitative task comparisons \\
+Chiquet et al. (2021)~\cite{Chiquet2021} & Multiple ecology/microbiome case studies & PLN, PLNPCA, PLNNetwork, PLNMixture & BIC/ICL for model order selection; illustrative fits across tasks; no held-out evaluation \\
 \hline
-Xiao et al. (2022)~\cite{Xiao2022PLNet} & Synthetic count-based networks; real scRNA-seq data & PLNet, VPLN, latentcor, glasso & AUC/AUPR; network recovery; runtime \\
+Xiao et al. (2022)~\cite{Xiao2022PLNet} & Synthetic count networks; real scRNA-seq data & PLNet, VPLN, latentcor, glasso & AUROC for graph edge recovery; asymptotic consistency rates; runtime \\
 \hline
-Virta \& Artemiou (2023)~\cite{Virta2023PoissonPCA} & Simulations; real count datasets & Poisson PCA, vectorization PCA, matrix-normal methods & Reconstruction error; latent-dimension recovery; runtime \\
+Virta \& Artemiou (2023)~\cite{Virta2023PoissonPCA} & Simulations; real species abundance matrix & Poisson PCA, vectorization PCA, matrix-normal methods & Subspace estimation error (principal angles); latent-rank selection accuracy; runtime \\
 \hline
-Qian et al. (2024)~\cite{Qian2024} & PLN-based synthetic generator; network tests & PLN, MA, MIC, Pearson & Accuracy/confusion matrices; regime-dependent performance \\
+Qian et al. (2024)~\cite{Qian2024} & Synthetic microbial communities (5 sizes, 4 topologies) & PLN, MIC, Pearson, Ma et al. & 3-class accuracy for interaction type recovery; topology and size effects \\
 \hline
 Batardi\`ere et al. (2025)~\cite{Batardiere2025ZIPLN} & High-zero simulations; cow microbiome & ZIPLN, PLN & In-sample log-likelihood (ELBO/BIC/AIC); latent dispersion; group discrimination \\
 \hline
-Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human gut microbiome & PLN-Tree, mean-field PLN, PLN & Generative/fit gains; proof-of-concept classification \\
+Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human gut microbiome (T2D) & PLN-Tree, mean-field PLN, PLN & ELBO/log-likelihood; Shannon, Simpson, Bray-Curtis diversity; downstream classification accuracy \\
 \hline
-\textbf{This work (2025)} & 28 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Held-out Poisson deviance; F1 against experimental ground truth; 5-fold LOTO-CV \\
+\textbf{This work (2026)} & 28 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Held-out Poisson deviance; F1 against experimental ground truth; 5-fold LOTO-CV; runtime; memory \\
 \hline
 \end{tabular}
 \label{tab:related_work}
@@ -156,7 +157,7 @@ Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human 
 \paragraph{Summary of contributions.}
 \begin{itemize}
   \item We benchmark PLN against \texttt{GLMNet(Poisson)} for count prediction across 28 real microbiome datasets under a unified Leave-One-Taxon-Out cross-validation protocol, providing the first held-out comparison of these two model classes on real data.
-  \item We identify the $N/D$ ratio as the primary empirical predictor of relative performance. PLN improves on \texttt{GLMNet(Poisson)} by up to 46\% in low-$N/D$ regimes where the latent covariance is recoverable from data; \texttt{GLMNet(Poisson)} dominates when $N \gg D$.
+  \item We identify the $N/D$ ratio as the primary empirical predictor of relative performance. PLN improves on \texttt{GLMNet(Poisson)} by up to 46\% in low-$N/D$ settings where the latent covariance is recoverable from data; \texttt{GLMNet(Poisson)} dominates when $N \gg D$.
   \item We evaluate PLNNetwork and \texttt{GLMNet} neighbourhood selection against experimentally validated microbial interaction datasets, providing the first comparison of these approaches on real biological ground truth rather than simulated or statistically modified networks.
 \end{itemize}
 
