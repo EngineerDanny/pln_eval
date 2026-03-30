@@ -5,6 +5,7 @@ base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
 truth_dir <- file.path(base_dir, "data", "interaction_ground_truth")
 fig_dir <- file.path(base_dir, "figures", "march26")
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+date_tag <- format(Sys.Date(), "%Y-%m-%d")
 
 dataset_info <- data.table(
   dataset = c(
@@ -43,11 +44,11 @@ plot_dt <- plot_dt[method %in% c("PLNnetwork", "LOTO_glmnet_CV1se")]
 
 method_map <- c(
   PLNnetwork = "PLNNetwork",
-  LOTO_glmnet_CV1se = "LOTO glmnet"
+  LOTO_glmnet_CV1se = "GLMNet (Poisson)"
 )
 plot_dt[, method_label := factor(
   method_map[method],
-  levels = c("PLNNetwork", "LOTO glmnet")
+  levels = c("PLNNetwork", "GLMNet (Poisson)")
 )]
 plot_dt[, benchmark_group := factor(
   benchmark_group,
@@ -59,7 +60,7 @@ plot_dt[, dataset_label := factor(dataset_label, levels = dataset_levels)]
 
 fill_map <- c(
   "PLNNetwork" = "grey30",
-  "LOTO glmnet" = "grey80"
+  "GLMNet (Poisson)" = "grey80"
 )
 
 p <- ggplot(plot_dt, aes(x = dataset_label, y = f1, fill = method_label)) +
@@ -95,7 +96,7 @@ p <- ggplot(plot_dt, aes(x = dataset_label, y = f1, fill = method_label)) +
     plot.margin = margin(6, 8, 6, 6)
   )
 
-out_png <- file.path(fig_dir, "interaction_truth_benchmarks_f1.png")
+out_png <- file.path(fig_dir, sprintf("interaction_truth_benchmarks_f1_%s.png", date_tag))
 ggsave(out_png, p, width = 7.1, height = 3.0, dpi = 400)
 
 cat(out_png, "\n")

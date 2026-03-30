@@ -6,6 +6,7 @@ base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
 truth_dir <- file.path(base_dir, "data", "interaction_ground_truth")
 fig_dir <- file.path(base_dir, "figures", "march26")
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+date_tag <- format(Sys.Date(), "%Y-%m-%d")
 
 label_map <- c(
   omm12 = "OMM12",
@@ -56,10 +57,16 @@ union_edges <- unique(rbindlist(list(
 )))
 vertices <- sort(unique(c(union_edges$from, union_edges$to)))
 
-union_graph <- graph_from_data_frame(union_edges, directed = FALSE, vertices = data.frame(name = vertices))
+# Keep the comparison visually stable across reruns by anchoring the layout on
+# the truth network rather than on the union of method-specific predictions.
+layout_graph <- graph_from_data_frame(
+  truth_edges[, .(from, to)],
+  directed = FALSE,
+  vertices = data.frame(name = vertices)
+)
 set.seed(42)
-layout_xy <- layout_with_fr(union_graph)
-rownames(layout_xy) <- V(union_graph)$name
+layout_xy <- layout_with_fr(layout_graph)
+rownames(layout_xy) <- V(layout_graph)$name
 
 plot_graph <- function(edge_dt, main_title, show_legend = FALSE) {
   g <- graph_from_data_frame(
@@ -109,7 +116,7 @@ plot_graph <- function(edge_dt, main_title, show_legend = FALSE) {
   }
 }
 
-out_png <- file.path(fig_dir, sprintf("interaction_network_example_%s.png", dataset))
+out_png <- file.path(fig_dir, sprintf("interaction_network_example_%s_%s.png", dataset, date_tag))
 png(
   filename = out_png,
   width = 9.2,
@@ -120,7 +127,7 @@ png(
 op <- par(mfrow = c(1, 3), mar = c(0.3, 0.3, 2.1, 0.3), oma = c(0, 0, 0, 0))
 plot_graph(truth_edges, "Truth", show_legend = TRUE)
 plot_graph(pln_edges, "PLNNetwork")
-plot_graph(glm_edges, "LOTO glmnet")
+plot_graph(glm_edges, "GLMNet (Poisson)")
 par(op)
 dev.off()
 

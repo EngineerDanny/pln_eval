@@ -6,6 +6,7 @@ base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
 truth_dir <- file.path(base_dir, "data", "interaction_ground_truth", "host_fitness_2018", "processed")
 fig_dir <- file.path(base_dir, "figures", "march26")
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+date_tag <- format(Sys.Date(), "%Y-%m-%d")
 
 read_tsv_gz <- function(path) {
   read.delim(gzfile(path), sep = "\t", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
@@ -171,12 +172,12 @@ plot_undirected_graph <- function(edge_dt, main_title) {
   plot_frame()
 }
 
-out_png <- file.path(fig_dir, "interaction_network_directed_host_fitness_2018.png")
+out_png <- file.path(fig_dir, sprintf("interaction_network_directed_host_fitness_2018_%s.png", date_tag))
 png(out_png, width = 9.2, height = 3.9, units = "in", res = 300)
 op <- par(mfrow = c(1, 3), mar = c(0.3, 0.3, 2.1, 0.3), oma = c(0, 0, 0, 0))
 plot_directed_graph(truth_edges, "Truth (directed)", show_legend = TRUE)
 plot_undirected_graph(pln_edges, "PLNNetwork (undirected)")
-plot_directed_graph(glm_edges, "LOTO glmnet (directed)")
+plot_directed_graph(glm_edges, "GLMNet (Poisson, directed)")
 par(op)
 dev.off()
 
