@@ -20,3 +20,15 @@ worker_setup.R
 *.txt
 *.tsv
 *.pdf
+*.blg
+*.aux
+*.bbl
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.lof
+*.lot
+*.gz
+*.zip
+*.tar.gz
+*.tar
