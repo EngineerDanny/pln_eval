@@ -348,6 +348,14 @@ The diagonal baseline, which predicts an empty graph, serves as the trivial refe
 \subsection{Computational setup}
 \label{subsec:computational-setup}
 
+All experiments were run on Northern Arizona University's Monsoon high-performance computing cluster~\cite{Buechler2025MonsoonIntro}.
+Prediction and network benchmark jobs were executed as single-core Slurm jobs.
+PLN-based learners were additionally run with one Torch thread to avoid conflating algorithmic differences with thread-level speedups.
+
+Runtime and memory scaling were profiled using the \texttt{atime} R package on the Vogtmann et al.\ stool species dataset~\cite{Vogtmann2016CRC}.
+For the saved profiling run, the number of taxa $p$ was varied from 10 to 1000 at a fixed sample size of $N=110$, and each configuration was run three times.
+We report median wall time and peak memory across those repeated measurements.
+
 \bibliographystyle{unsrtnat}
 \bibliography{references}
 
