@@ -164,8 +164,11 @@ Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human 
 
 \section{Methods}
 
-\subsection{Count-prediction datasets}
-\label{subsec:count-prediction-datasets}
+\subsection{Datasets}
+\label{subsec:datasets}
+
+\subsubsection{Count-prediction datasets}
+\label{subsubsec:count-prediction-datasets}
 
 We evaluated count prediction on a heterogeneous benchmark of 28 microbiome datasets spanning oral, skin, nasal, stool, infant, pediatric, and general gut settings, together with several disease-focused collections including colorectal cancer, inflammatory bowel disease, \textit{Clostridium difficile} infection, HIV, nonalcoholic steatohepatitis, obesity, Parkinson's disease, rheumatoid arthritis, and type~1 diabetes.
 The retained benchmark set includes feature tables at the family, genus, species, and OTU levels and covers a broad range of sample sizes and feature dimensions.
@@ -219,12 +222,6 @@ MBQC integrated OTUs~\cite{MBQC2017} & stool benchmark & Family & 18364 & 257 & 
 \bottomrule
 \end{tabular}
 \end{table}
-%% ---- DRAFT CONCEPTUAL FIGURES (for review) ----
-
-
-%% Option A removed
-\noindent\textbf{Option B: Evaluation pipeline comparison}
-
 \begin{figure}[h]
 \centering
 \begin{tikzpicture}[
@@ -271,7 +268,49 @@ Prior work for network inference includes Xiao et al.~\cite{Xiao2022PLNet}, Qian
 \label{fig:pipeline}
 \end{figure}
 
-\bigskip
+\subsubsection{Network-inference datasets}
+\label{subsubsec:network-inference-datasets}
+
+We evaluated network inference on five real microbial interaction benchmarks with experimentally supported edge truth.
+Three datasets support broad undirected edge-recovery evaluation: OMM12~\cite{Weiss2022OMM12}, OMM12 keystone 2023~\cite{Weiss2023Keystone}, and PairInteraX~\cite{Zhu2025PairInteraX}.
+Two additional datasets support local or directional recovery from experimentally measured pairwise effects: butyrate assembly 2021 and host fitness 2018.
+Across these datasets, sample size ranged from $N=109$ to $N=1449$, feature dimension ranged from $D=5$ to $D=96$, and data sparsity ranged from $21.25\%$ to $66.19\%$.
+Processed abundance matrices and truth edge sets were harmonized into a common benchmark format so that PLNNetwork and \texttt{GLMNet(Poisson)} could be evaluated under the same scoring rules.
+The benchmark datasets are summarized in Table~\ref{tab:network-datasets}.
+
+\begin{table}[t]
+\caption{Network-inference datasets used for evaluation against experimental interaction truth.
+Data sparsity is the percentage of zero entries in the fitted abundance matrix after count-like preprocessing and removal of zero-sum rows or columns.}
+\label{tab:network-datasets}
+\centering
+\scriptsize
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}rrr}
+\toprule
+Dataset & System & Truth type & $N$ & $D$ & Data sparsity (\%) \\
+\midrule
+OMM12~\cite{Weiss2022OMM12} & defined human gut bacterial community & experimental coculture and dropout interactions & 109 & 12 & 21.25 \\
+OMM12 keystone 2023~\cite{Weiss2023Keystone} & defined human gut bacterial community & experimental dropout-derived abundance-ratio effects & 228 & 11 & 31.50 \\
+PairInteraX~\cite{Zhu2025PairInteraX} & human gut species panel & experimental pairwise co-culture interaction labels & 169 & 96 & 25.86 \\
+Butyrate assembly 2021~\cite{Clark2021Butyrate} & defined human gut community & pair-vs-singleton abundance shifts & 537 & 26 & 66.19 \\
+Host fitness 2018~\cite{Gould2018HostFitness} & \textit{Drosophila} gut community & pair-vs-singleton CFU shifts & 1449 & 5 & 54.56 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Algorithms}
+\label{subsec:algorithms}
+
+\subsection{Evaluation protocols}
+\label{subsec:evaluation-protocols}
+
+\subsubsection{Count-prediction evaluation}
+\label{subsubsec:count-prediction-evaluation}
+
+\subsubsection{Network-inference evaluation}
+\label{subsubsec:network-inference-evaluation}
+
+\subsection{Computational setup}
+\label{subsec:computational-setup}
 
 \bibliographystyle{unsrtnat}
 \bibliography{references}
