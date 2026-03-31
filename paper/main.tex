@@ -300,14 +300,50 @@ Host fitness 2018~\cite{Gould2018HostFitness} & \textit{Drosophila} gut communit
 \subsection{Algorithms}
 \label{subsec:algorithms}
 
+We used algorithms matched to each task.
+All count inputs were log1p-transformed before being passed to any algorithm.
+For count prediction, we compared a featureless baseline, \texttt{GLMNet(Poisson)}, and PLN.
+For network inference, we compared a diagonal baseline, \texttt{GLMNet(Poisson)} neighbourhood selection, and PLN with graphical lasso.
+
+The featureless baseline (count prediction) predicts each target taxon by the empirical mean of that taxon in the training split, ignoring all cross-taxon information.
+The diagonal baseline (network inference) corresponds to an empty graph that predicts no interactions.
+
+\texttt{GLMNet(Poisson)} fits a penalized Poisson regression for each taxon using the abundances of all other taxa as predictors~\cite{Friedman2010}.
+For count prediction, we used the lasso penalty with \texttt{cv.glmnet}, modelling each taxon independently with no joint latent covariance.
+For network inference, we used nodewise neighbourhood selection~\cite{Meinshausen2006}, retaining coefficients at \texttt{lambda.1se} and defining undirected edges by mutual support after symmetrising the coefficient matrix.
+
+PLN fits a Poisson log-normal model with an intercept and a latent Gaussian layer~\cite{aitchison1989multivariate,Chiquet2021}.
+The latent covariance $\hat{\Sigma}$ captures residual dependence among taxa.
+For count prediction, predictions for each target taxon are obtained by Gaussian conditioning on the fitted latent distribution.
+To stabilize prediction, we apply covariance shrinkage with parameter $\alpha \in \{0.0, 0.1, \ldots, 1.0\}$, where $\alpha$ scales the off-diagonal entries of $\hat{\Sigma}$ as $\hat{\Sigma}_{jk} \leftarrow \alpha\hat{\Sigma}_{jk}$ for $j \neq k$.
+For network inference, we apply the graphical lasso~\cite{Friedman2008glasso} to $\hat{\Sigma}$ over 30 log-spaced penalty values from $\rho_{\max}$ to $0.005\,\rho_{\max}$, where $\rho_{\max}$ is the largest off-diagonal entry of $\hat{\Sigma}$ in absolute value.
+The sparse precision matrix at the selected penalty defines the estimated interaction graph.
+
+All PLN models were fit with variational inference using the \texttt{PLNmodels} package~\cite{Chiquet2021}.
+All penalized Poisson regressions were fit with \texttt{glmnet}~\cite{Friedman2010}.
+Graphical lasso fits used the \texttt{glassoFast} package~\cite{Sustik2012glassoFast}.
+
 \subsection{Evaluation protocols}
 \label{subsec:evaluation-protocols}
 
-\subsubsection{Count-prediction evaluation}
-\label{subsubsec:count-prediction-evaluation}
+For count prediction, we used leave-one-taxon-out cross-validation (LOTO-CV).
+In each outer fold, one taxon is held out as the prediction target and the remaining taxa serve as predictors; this is repeated for every taxon and the scores are averaged.
+The outer CV used 3 folds; the inner CV used 3 folds for hyperparameter selection.
+The primary metric is held-out Poisson deviance, defined as
+\[
+  \mathcal{D}(y, \hat\mu) = 2\sum_{i} \left( y_i \log\frac{y_i}{\hat\mu_i} - (y_i - \hat\mu_i) \right),
+\]
+where $y_i$ are the observed counts and $\hat\mu_i$ are the predicted means.
+For \texttt{GLMNet(Poisson)}, the regularization parameter $\lambda$ was selected by inner-fold Poisson deviance using \texttt{cv.glmnet}.
+For PLN, the shrinkage parameter $\alpha$ was selected by 3-fold inner cross-validation on Poisson deviance.
+The featureless baseline serves as a lower bound: any algorithm with higher deviance than the featureless baseline provides no useful predictive signal.
 
-\subsubsection{Network-inference evaluation}
-\label{subsubsec:network-inference-evaluation}
+For network inference, estimated interaction graphs were compared against experimentally validated microbial interactions from five ground-truth datasets: PairInteraX~\cite{Zhu2025PairInteraX}, OMM12~\cite{Weiss2022OMM12}, OMM12 keystone 2023~\cite{Weiss2023Keystone}, butyrate assembly 2021~\cite{Clark2021Butyrate}, and host fitness 2018~\cite{Gould2018HostFitness}.
+Each dataset provides experimentally derived pairwise interaction labels obtained from co-culture, dropout, or combinatorial abundance experiments.
+The primary metrics are precision, recall, and F1 score on edge recovery, computed by matching predicted edges against the ground-truth interaction set.
+For PLN with graphical lasso, the penalty $\rho$ was selected by EBIC on the training data.
+For \texttt{GLMNet(Poisson)} neighbourhood selection, $\lambda$ was fixed at \texttt{lambda.1se} from \texttt{cv.glmnet}.
+The diagonal baseline, which predicts an empty graph, serves as the trivial reference point.
 
 \subsection{Computational setup}
 \label{subsec:computational-setup}

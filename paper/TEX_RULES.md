@@ -10,4 +10,6 @@ TeX editing rules for this paper
 8. Do not use the word "via". Rephrase to avoid it.
 9. Do not use the word "perturbation" or any of its forms (perturb, perturbed, perturbations). Rephrase to avoid them.
 10. Prefer the word "setting" instead of "regime".
-11. Keep following these rules for all future manuscript edits unless explicitly changed.
+11. Do not use the compound adjective "task-matched". Rephrase to avoid it.
+12. Do not use the compound adjective "intercept-only". Rephrase to avoid it.
+13. Keep following these rules for all future manuscript edits unless explicitly changed.
