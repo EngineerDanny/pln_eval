@@ -1,6 +1,7 @@
 \documentclass[11pt]{article}
 \usepackage[margin=0.7in]{geometry}
 \usepackage{booktabs}
+\usepackage{subcaption}
 \usepackage{longtable}
 \usepackage{array}
 \usepackage[T1]{fontenc}
@@ -355,6 +356,173 @@ PLN-based learners were additionally run with one Torch thread to avoid conflati
 Runtime and memory scaling were profiled using the \texttt{atime} R package on the Vogtmann et al.\ stool species dataset~\cite{Vogtmann2016CRC}.
 For the saved profiling run, the number of taxa $p$ was varied from 10 to 1000 at a fixed sample size of $N=110$, and each configuration was run three times.
 We report median wall time and peak memory across those repeated measurements.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Performance Variation Across Datasets}
+\label{subsec:count-prediction-results}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{count_prediction_case_study_benchmark}
+  \caption{Representative datasets illustrating both directions of the PLN
+  vs.\ GLMNet(Poisson) comparison.
+  Top: datasets where PLN achieves lower mean Poisson deviance.
+  Bottom: datasets where GLMNet(Poisson) achieves lower mean Poisson deviance.
+  Each panel reports mean Poisson deviance (mean $\pm$ SE across three outer
+  cross-validation folds) for PLN, GLMNet(Poisson), and the featureless baseline.
+  The annotated difference and $p$-value are from the paired comparison of PLN
+  and GLMNet(Poisson) across folds.}
+  \label{fig:count_pred_case_study}
+\end{figure}
+
+Neither PLN nor GLMNet(Poisson) uniformly dominates across all benchmark datasets
+(Figure~\ref{fig:count_pred_case_study}).
+The outcome depends primarily on two dataset characteristics: the sample-to-taxon
+ratio $n/p$ and the mean absolute correlation (MAC) among taxa.
+PLN tends to win on datasets with high MAC, where substantial pairwise correlations
+among taxa make the latent covariance structure modelled by PLN informative.
+GLMNet(Poisson) tends to win when $n/p$ is large --- as in MBQC integrated
+($n=18{,}270$, $p=235$) and Diabimmune Karelia ($n=1{,}584$, $p=55$) --- and on
+datasets with low MAC, where the latent covariance modelled by PLN carries
+little predictive information.
+In all datasets shown, both algorithms improve upon the featureless baseline.
+
+\subsection{Network-inference results}
+\label{subsec:network-inference-results}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{interaction_truth_benchmarks_f1_2026-03-28}
+  \caption{Edge-recovery F1 on five experimental ground-truth datasets for
+  PLNNetwork and GLMNet(Poisson).
+  Datasets are grouped by ground-truth type: broad edge recovery (OMM12,
+  OMM12 keystone 2023, PairInteraX) and local/directional (butyrate assembly 2021,
+  host fitness 2018).}
+  \label{fig:network_f1}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[b]{\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{interaction_network_example_omm12_2026-03-28}
+    \caption{OMM12}
+    \label{fig:network_omm12}
+  \end{subfigure}
+  \begin{subfigure}[b]{\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{interaction_network_example_host_fitness_2018_2026-03-28}
+    \caption{Host fitness 2018}
+    \label{fig:network_host_fitness}
+  \end{subfigure}
+  \caption{Ground-truth and inferred networks for two representative datasets.
+  Each panel shows the experimental ground truth (left), the PLNNetwork prediction
+  (centre), and the GLMNet(Poisson) prediction (right).
+  Edge colour indicates interaction sign (blue: positive, red: negative, grey: mixed).}
+  \label{fig:network_case_studies}
+\end{figure}
+
+PLNNetwork outperforms GLMNet(Poisson) on four of five ground-truth datasets,
+but the margin and direction depend on the ground-truth type (Figure~\ref{fig:network_f1}).
+On the three broad edge recovery datasets, PLNNetwork achieves substantially
+higher F1: OMM12 ($\text{F1} = 0.86$ vs.\ $0.29$), OMM12 keystone 2023
+($0.62$ vs.\ $0.21$), and PairInteraX ($0.23$ vs.\ $0.02$).
+The OMM12 case study (Figure~\ref{fig:network_omm12}) illustrates why:
+the experimental ground truth is a dense, predominantly negative interaction
+network that PLNNetwork recovers well, while GLMNet(Poisson) infers a sparse
+network with predominantly positive edges.
+On the local/directional datasets, the pattern reverses for host fitness 2018:
+GLMNet(Poisson) achieves $\text{F1} = 0.95$ vs.\ PLNNetwork's $0.80$,
+recovering all nine experimental interactions with a single false positive
+(Figure~\ref{fig:network_host_fitness}).
+PLNNetwork correctly identifies six of the nine interactions but misses three
+edges involving taxon AO.
+On butyrate assembly 2021, PLNNetwork retains a small advantage
+($\text{F1} = 0.36$ vs.\ $0.27$).
+
+\subsection{Computational scaling}
+\label{subsec:computational-scaling}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{vogtmann_stool_species_pln_glmnet_p_scaling}
+  \caption{Median wall time (left) and peak memory (right) as a function of the
+  number of taxa $p$, profiled on the Vogtmann et al.\ stool species dataset
+  ($N = 110$) using the \texttt{atime} R package.
+  Each point is the median of three runs; $p$ ranges from 10 to 1000.
+  Both axes are on a log scale.}
+  \label{fig:atime}
+\end{figure}
+
+PLN is substantially more expensive than GLMNet(Poisson) in both wall time and
+peak memory at all values of $p$ (Figure~\ref{fig:atime}).
+Wall time for PLN grows approximately as $O(p^2)$ to $O(p^3)$, reaching 76\,s
+at $p = 1000$, while GLMNet(Poisson) scales approximately as $O(p)$, reaching
+0.28\,s --- a roughly 280-fold difference at the largest setting.
+Peak memory shows a similar gap: PLN uses 392\,MB at $p = 1000$, compared to
+79\,MB for GLMNet(Poisson).
+Despite the steeper scaling, PLN remains feasible for the dataset sizes
+typical of microbiome benchmarks: wall time stays below 80\,s and peak memory
+below 400\,MB across the full range of $p$ tested.
+
+\section{Discussion}
+\label{sec:discussion}
+
+The count-prediction results suggest that the relative advantage of PLN over
+GLMNet(Poisson) depends on two dataset characteristics: the sample-to-taxon
+ratio $n/p$ and the mean absolute correlation (MAC) among taxa.
+When $n/p$ is low or MAC is high, PLN benefits from explicitly modelling the
+latent covariance structure among taxa; the cost of estimating a $p \times p$
+covariance matrix is justified by the information it encodes.
+Conversely, when $n/p$ is large, the independent-taxon assumption of
+GLMNet(Poisson) is less harmful, and lasso regularisation achieves good
+predictive performance without modelling inter-taxon dependence.
+On datasets with low MAC, the latent covariance carries little predictive
+information, removing PLN's main advantage regardless of $n/p$.
+
+The network-inference results reflect a structural difference between the two
+approaches.
+PLN recovers an undirected graphical model by applying graphical lasso to the
+estimated latent covariance; this is well-suited to broad, symmetric interaction
+networks such as OMM12, where the ground truth encodes pairwise competition and
+facilitation among all member species.
+GLMNet(Poisson) fits a separate penalised regression for each taxon, following
+the neighbourhood selection approach of \citet{Meinshausen2006}, and is better
+aligned with local or directional interactions where the effect of one species
+on another is not necessarily reciprocal.
+The host fitness ground truth, which records the directional effect of individual
+taxa on host reproductive fitness, exemplifies this setting.
+
+Several limitations constrain the generalisability of these findings.
+The benchmark compares only PLN and GLMNet(Poisson) and does not evaluate other
+methods for microbial network inference, such as SPIEC-EASI~\citep{Kurtz2015SPIECEASI}
+and SparCC~\citep{Friedman2012SparCC}, which are designed to account for the
+compositional structure of relative-abundance data.
+The network-inference evaluation is restricted to five experimental ground-truth
+datasets; results may not generalise to communities with different sizes or
+interaction densities.
+Both algorithms receive the same log1p-transformed input, a preprocessing choice
+that may not be optimal for PLN, which is designed for raw count data.
+The computational profiling is limited to a single dataset at fixed $N = 110$
+on a single core; results may differ at larger sample sizes or with multi-threaded
+execution.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Neither PLN nor GLMNet(Poisson) uniformly dominates across the benchmark.
+For count prediction, $n/p$ and MAC are informative signals for algorithm
+selection: PLN is the stronger choice when $n/p$ is low or inter-taxon
+correlations are substantial, while GLMNet(Poisson) is competitive and
+considerably faster when $n/p$ is large or correlations are weak.
+For network inference, PLNNetwork better recovers broad, undirected interaction
+networks, while GLMNet(Poisson) nodewise regression is better suited to local
+or directional interactions.
+PLN's wall time is approximately two to three orders of magnitude higher than
+GLMNet(Poisson) across the range of $p$ tested, though it remains within
+practical limits for current microbiome dataset sizes.
 
 \bibliographystyle{unsrtnat}
 \bibliography{references}
