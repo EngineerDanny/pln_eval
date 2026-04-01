@@ -136,8 +136,9 @@ Across these studies, edge-recovery assessment relies on synthetic or statistica
 \begin{table}[htbp]
 \caption{Summary of prior benchmarks of PLN and Poisson algorithms.}
 \centering
-\small
-\begin{tabular}{>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{4.6cm}}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{4.1cm}}
 \toprule
 Study (year) & Data / setting & Algorithms tested & Evaluation metrics \\
 \midrule
@@ -169,56 +170,17 @@ As shown in Table~\ref{tab:related_work}, the field still lacks a unified empiri
 
 \begin{itemize}
   \item We benchmark PLN against \texttt{GLMNet(Poisson)} for count prediction across 28 real microbiome datasets under a unified Leave-One-Taxon-Out cross-validation~\cite{agyapong2025cross} protocol, quantifying predictive uncertainty through paired deviance comparisons. This provides the first held-out comparison of these two model classes on real data.
-  \item We identify $N/D$ as the primary empirical predictor of relative performance, and overdispersion as the strongest secondary predictor. PLN improves on \texttt{GLMNet(Poisson)} by up to 38\% when $N/D$ is low and counts are strongly overdispersed; \texttt{GLMNet(Poisson)} dominates when $N \gg D$.
+  \item We identify $N/D$ as the primary empirical predictor of relative performance and overdispersion as the strongest secondary signal. PLN improves on \texttt{GLMNet(Poisson)} by up to 38\% when $N/D$ is low and counts are strongly overdispersed, whereas \texttt{GLMNet(Poisson)} dominates when $N \gg D$.
   \item We evaluate PLNNetwork and \texttt{GLMNet} neighbourhood selection against experimentally validated microbial interaction datasets, providing the first comparison of these approaches on real biological ground truth rather than simulated or statistically altered networks.
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[
-  font=\small,
-  pbox/.style={rectangle, draw=gray!55, fill=gray!10, rounded corners=3pt,
-               align=center, minimum width=3.8cm, minimum height=0.88cm, font=\footnotesize},
-  tbox/.style={rectangle, draw=blue!55, fill=blue!10, rounded corners=3pt,
-               align=center, minimum width=3.8cm, minimum height=0.88cm, font=\footnotesize},
-  parrow/.style={-Stealth, thick, gray!55},
-  tarrow/.style={-Stealth, thick, blue!55},
-]
-\node[font=\small\bfseries, text=gray!70]       at (2.3, 8.5) {Common earlier evaluations};
-\node[font=\small\bfseries, text=blue!70!black] at (8.9, 8.5) {Benchmark design used here};
-\draw[dashed, thick, gray!35] (5.6, -2.1) -- (5.6, 8.3);
-\node[font=\footnotesize\itshape, text=gray!60]       at (2.3, 7.95) {prediction};
-\node[font=\footnotesize\itshape, text=blue!55!black] at (8.9, 7.95) {prediction};
-	\node[pbox] (p1) at (2.3, 7.3)  {Synthetic or real data\\(no holdout)};
-	\node[pbox] (p2) at (2.3, 5.65) {PLN family};
-	\node[pbox] (p3) at (2.3, 4.0)  {ELBO / BIC / AIC\\(in-sample)};
-	\draw[parrow] (p1) -- (p2);
-	\draw[parrow] (p2) -- (p3);
-	\node[tbox] (t1) at (8.9, 7.3)  {28 real microbiome\\datasets};
-	\node[tbox] (t2) at (8.9, 5.65) {PLN vs \texttt{GLMNet(Poisson)}};
-	\node[tbox] (t3) at (8.9, 4.0)  {Held-out Poisson\\deviance (LOTO-CV)};
-\draw[tarrow] (t1) -- (t2);
-\draw[tarrow] (t2) -- (t3);
-\draw[dashed, gray!28] (0.0, 3.2) -- (11.2, 3.2);
-\node[font=\footnotesize\itshape, text=gray!60]       at (2.3, 2.85) {network inference};
-\node[font=\footnotesize\itshape, text=blue!55!black] at (8.9, 2.85) {network inference};
-	\node[pbox] (n1) at (2.3, 2.25)  {Simulated or\\modified networks};
-	\node[pbox] (n2) at (2.3, 0.6)   {PLNNetwork};
-	\node[pbox] (n3) at (2.3, -1.05) {ROC / AUPR on\\simulated ground truth};
-	\draw[parrow] (n1) -- (n2);
-	\draw[parrow] (n2) -- (n3);
-	\node[tbox] (m1) at (8.9, 2.25)  {5 experimentally\\validated datasets};
-\node[tbox] (m2) at (8.9, 0.6)   {PLNNetwork vs \texttt{GLMNet(Poisson)}};
-\node[tbox] (m3) at (8.9, -1.05) {F1 vs validated\\microbial interactions};
-\draw[tarrow] (m1) -- (m2);
-\draw[tarrow] (m2) -- (m3);
-\end{tikzpicture}
-\caption{Conceptual comparison between common evaluation patterns in earlier PLN studies and the benchmark design used in this paper.
-The top half summarizes count-prediction evaluation.
-The bottom half summarizes network-inference evaluation.
-Prior work for prediction includes Chiquet et al.~\cite{Chiquet2021}, Batardi\`{e}re et al.~\cite{Batardiere2025ZIPLN}, and Chaussard et al.~\cite{Chaussard2025PLNTree}.
-Prior work for network inference includes Xiao et al.~\cite{Xiao2022PLNet}, Qian et al.~\cite{Qian2024}, and Ghaeli et al.~\cite{Ghaeli2025}.}
+\includegraphics[width=\textwidth]{concept_nov}
+\caption{Conceptual contrast between earlier evaluation practice and the count-prediction protocol used in this study.
+Previous work often assessed count models with in-sample fit criteria computed on the observed abundance matrix.
+Our benchmark instead withholds a target taxon, predicts its counts out of sample from the remaining taxa, and scores those predictions with held-out Poisson deviance under leave-one-taxon-out cross-validation.}
 \label{fig:pipeline}
 \end{figure}
 % \begin{figure}[t]
@@ -404,7 +366,7 @@ The estimated interaction graph is therefore
 \hat{A}_{jk} = \mathbb{1}\!\left\{\hat{\Omega}_{jk} \neq 0\right\}.
 \]
 
-All PLN and PLNNetwork models were fit with variational inference using the \texttt{PLNmodels} package~\cite{Chiquet2021}.
+All PLN-based models were fit with variational inference using the \texttt{PLNmodels} package~\cite{Chiquet2021}.
 All penalized Poisson regressions were fit with \texttt{glmnet}~\cite{Friedman2010}.
 
 \subsection{Evaluation protocols}
@@ -455,8 +417,8 @@ We report median wall time and peak memory across those repeated measurements.
 \centering
 \begin{tikzpicture}
 \begin{axis}[
-  width=0.62\textwidth,
-  height=0.38\textwidth,
+  width=0.92\textwidth,
+  height=0.58\textwidth,
   xlabel={$N/D$ ratio (log scale)},
   ylabel={Mean absolute correlation (MAC)},
   xmode=log,
@@ -660,6 +622,5 @@ Third, the comparison is restricted to algorithms in the Poisson family; extendi
 Fourth, lightweight diagnostics that estimate recoverable latent dependence (for example, through stability of conditional correlations across folds) could help practitioners decide when PLN is likely to provide benefits before incurring its full computational cost.
 Finally, the computational experiments were conducted on Northern Arizona University’s Monsoon supercomputer~\cite{Buechler2025MonsoonIntro}; profiling PLN under multi-threaded execution and at larger sample sizes would give a more complete picture of its practical scalability.
 
-\bibliographystyle{plainnat}
 \bibliography{references}
 \end{document}
