@@ -236,6 +236,20 @@ We evaluated count prediction on a heterogeneous benchmark of 28 microbiome data
 The retained benchmark set includes feature tables at the family, genus, species, and OTU levels and covers a broad range of sample sizes and feature dimensions.
 Across datasets, the number of samples ranged from $N=32$ to $N=18{,}364$, the number of features ranged from $D=24$ to $D=373$, and the fraction of zero entries in the benchmarked abundance matrices ranged from $30.64\%$ to $93.01\%$.
 
+The goal of this collection is not to represent a single biological system, but to cover the range of settings in which practitioners actually face a choice between a joint latent count model and a faster penalized regression baseline.
+Several dataset families are particularly important for that comparison.
+American Gut 2~\cite{McDonald2018}, MehtaRS 2018~\cite{Mehta2018}, and MBQC integrated OTUs~\cite{MBQC2017} represent larger and more heterogeneous microbiome surveys, including a very large benchmark-style study in the MBQC collection.
+These datasets are useful because they test whether PLN retains an advantage when sample size is no longer the main bottleneck.
+
+Other datasets probe the opposite end of the benchmark.
+Lozupone HIV~\cite{Lozupone2013}, RubelMA 2020~\cite{Rubel2020}, and several of the disease-focused stool datasets have relatively small $N$, moderate or large $D$, or both.
+These are the settings in which the balance between latent covariance estimation and penalized univariate fitting becomes most visible.
+The benchmark also includes multiple colorectal cancer datasets~\cite{Yu2015, Baxter2016, Zeller2014}, early-life gut studies such as Diabimmune Karelia~\cite{Vatanen2016} and ShaoY 2019~\cite{Shao2019}, and targeted disease collections such as Schubert CDI~\cite{Schubert2014}, which together provide repeated examples of related biological questions under different sample sizes, taxonomic resolutions, and sparsity levels.
+
+This diversity is important for interpretation.
+The paper's goal is not to identify a single best-performing method on one cohort, but to determine which properties of the count matrix predict when PLN is worth its added complexity.
+The broad spread of $N$, $D$, sparsity, and biological settings is therefore a deliberate part of the benchmark design rather than background variation to be averaged away.
+
 The benchmark collection is summarized in Table~\ref{tab:bmr-count-datasets}.
 The main-paper table reports a representative summary of the 28 datasets used in the count-prediction benchmark.
 Full benchmark identifiers and provenance are preserved in the repository metadata for exact reproducibility.
@@ -287,10 +301,23 @@ MBQC integrated OTUs~\cite{MBQC2017} & stool benchmark & Family & 18364 & 257 & 
 \subsubsection{Network-inference datasets}
 \label{subsubsec:network-inference-datasets}
 We evaluated network inference on five real microbial interaction benchmarks with experimentally supported edge truth.
-Three datasets support broad undirected edge-recovery evaluation: OMM12~\cite{Weiss2022OMM12}, OMM12 keystone 2023~\cite{Weiss2023Keystone}, and PairInteraX~\cite{Zhu2025PairInteraX}.
-Two additional datasets support local or directional recovery from experimentally measured pairwise effects: butyrate assembly 2021 and host fitness 2018.
+These datasets were chosen because each provides an external experimental source of interaction truth rather than a simulated or statistically constructed target.
+They therefore allow direct evaluation of edge recovery on biological systems for which pairwise competition, facilitation, or conditional effects were measured independently of the fitted models.
+
+The benchmark contains two distinct kinds of truth.
+The first kind targets broad undirected edge recovery.
+OMM12~\cite{Weiss2022OMM12} and OMM12 keystone 2023~\cite{Weiss2023Keystone} are defined human gut communities in which community composition was perturbed through coculture, deletion, or keystone-style experiments.
+These datasets are well suited to evaluating recovery of an overall community interaction graph because the truth reflects system-wide effects across a small, fully enumerated set of taxa.
+PairInteraX~\cite{Zhu2025PairInteraX} plays a complementary role.
+It provides a much larger human gut species panel with experimentally measured pairwise coculture interaction labels, which makes it useful for testing whether the same methods still recover true edges when the number of taxa increases substantially.
+
+The second kind targets local or directional effects.
+Butyrate assembly 2021~\cite{Clark2021Butyrate} contains singleton, pair, and larger synthetic gut communities, allowing local effects to be defined from pair-vs-singleton abundance shifts.
+Host fitness 2018~\cite{Gould2018HostFitness} is a five-species \textit{Drosophila} gut system in which pair-vs-singleton colony counts were linked to host reproductive fitness.
+These two datasets are informative because the underlying signal is closer to ``taxon $a$ affects taxon $b$'' than to a single global undirected graph, and thus test whether nodewise and joint graphical procedures behave differently when the truth is more local.
+
 Across these datasets, sample size ranged from $N=109$ to $N=1449$, feature dimension ranged from $D=5$ to $D=96$, and data sparsity ranged from $21.25\%$ to $66.19\%$.
-Processed abundance matrices and truth edge sets were harmonized into a common benchmark format so that PLNNetwork and \texttt{GLMNet(Poisson)} could be evaluated under the same scoring rules.
+Processed abundance matrices and truth edge sets were harmonized into a common benchmark format so that PLNNetwork and \texttt{GLMNet(Poisson)} could be evaluated under the same scoring rules despite their different biological origins.
 The benchmark datasets are summarized in Table~\ref{tab:network-datasets}.
 
 \begin{table}[htbp]
@@ -318,25 +345,64 @@ Host fitness 2018~\cite{Gould2018HostFitness} & \textit{Drosophila} gut communit
 \label{subsec:algorithms}
 
 We used different methods for count prediction and network inference.
+Let $Y_{ij}$ denote the observed count for sample $i$ and taxon $j$, and let $s_i$ denote the sequencing-depth offset for sample $i$.
 For count prediction, we compared a featureless baseline, \texttt{GLMNet(Poisson)}, and PLN.
 For network inference, we compared a diagonal baseline, \texttt{GLMNet(Poisson)} neighbourhood selection, and PLNNetwork.
 
-The featureless baseline predicts each target taxon by the empirical mean of that taxon in the training split and ignores all cross-taxon information.
-The diagonal baseline corresponds to an empty interaction graph with no predicted edges.
+For count prediction, the featureless baseline predicts each target taxon by the training-set mean
+\[
+\hat{\mu}_{ij} = \bar{Y}_{\cdot j}.
+\]
+For network inference, the diagonal baseline predicts an empty graph, that is
+\[
+\hat{A}_{jk} = 0 \qquad \text{for all } j \neq k.
+\]
 
-\texttt{GLMNet(Poisson)} fits a penalized Poisson regression for each taxon using the abundances of all other taxa as predictors~\cite{Friedman2010}.
-For count prediction, we used \texttt{cv.glmnet} with an $\ell_1$ penalty and log1p-transformed predictor abundances.
-This model treats each target taxon independently and does not include a joint latent covariance across taxa.
-For network inference, we used nodewise neighbourhood selection~\cite{Meinshausen2006}.
-We retained coefficients at \texttt{lambda.1se} and symmetrised the resulting coefficient matrix to define an undirected interaction graph.
+\texttt{GLMNet(Poisson)} fits a penalized Poisson regression for each target taxon~\cite{Friedman2010}.
+For count prediction, we model
+\[
+Y_{ij} \mid Y_{i,-j} \sim \mathrm{Poisson}(\mu_{ij}),
+\qquad
+\log \mu_{ij} = \log s_i + \beta_{0j} + \sum_{k \neq j} \beta_{jk}\,\log(1 + Y_{ik}),
+\]
+with coefficients estimated by minimizing
+\[
+-\ell_j(\beta_{0j}, \beta_j) + \lambda_j \lVert \beta_j \rVert_1.
+\]
+This yields a separate sparse Poisson regression for each target taxon and does not estimate a joint latent covariance across taxa.
+For network inference, we use nodewise neighbourhood selection~\cite{Meinshausen2006}.
+An undirected edge is included when the symmetrized coefficient support is nonzero, that is
+\[
+\hat{A}_{jk} = \mathbb{1}\!\left\{\max\!\big(|\hat{\beta}_{jk}|, |\hat{\beta}_{kj}|\big) > 0\right\}.
+\]
 
-PLN fits a Poisson log-normal model with an intercept, a sequencing-depth offset, and a latent Gaussian layer that captures residual dependence among taxa~\cite{aitchison1989multivariate,Chiquet2021}.
-For count prediction, held-out means for each target taxon were obtained by Gaussian conditioning on the fitted latent distribution.
-To stabilize these predictions, we applied covariance shrinkage with parameter $\alpha \in \{0.0, 0.1, \ldots, 1.0\}$, where $\alpha$ scales the off-diagonal entries of the fitted covariance matrix.
+PLN fits a Poisson log-normal model with a latent Gaussian layer~\cite{aitchison1989multivariate,Chiquet2021}.
+For each sample,
+\[
+Y_{ij} \mid Z_i \sim \mathrm{Poisson}\!\left(s_i \exp(\eta_j + Z_{ij})\right),
+\qquad
+Z_i \sim \mathcal{N}(0, \Sigma).
+\]
+For count prediction, held-out means are obtained from Gaussian conditioning in the latent layer,
+\[
+\hat{\mu}_{ij}
+=
+s_i \exp\!\left(\hat{\eta}_j + \hat{m}_{ij \mid -j} + \tfrac{1}{2}\hat{v}_{j \mid -j}\right),
+\]
+where $\hat{m}_{ij \mid -j}$ and $\hat{v}_{j \mid -j}$ are the conditional latent mean and variance for taxon $j$ given the observed taxa in sample $i$.
+To stabilize these predictions, we applied covariance shrinkage with parameter $\alpha \in \{0.0, 0.1, \ldots, 1.0\}$ by scaling the off-diagonal entries of $\hat{\Sigma}$.
 
-PLNNetwork extends PLN by estimating a sparse latent precision matrix within the same variational framework~\cite{chiquet2019variational,Chiquet2021}.
+PLNNetwork extends PLN by estimating a sparse precision matrix $\Omega = \Sigma^{-1}$ within the same variational framework~\cite{chiquet2019variational,Chiquet2021}.
+Conceptually, the fitted model maximizes a penalized variational objective of the form
+\[
+\mathrm{ELBO}(\eta, \Omega) - \rho \lVert \Omega \rVert_{1,\mathrm{off}},
+\]
+so that zero off-diagonal entries of $\Omega$ correspond to absent conditional associations.
 For network inference, we initialized PLNNetwork from a full PLN fit, evaluated a matched log-spaced penalty grid from $\rho_{\max}$ to $0.005\,\rho_{\max}$, set diagonal penalization to false, and selected the final graph by EBIC.
-The selected sparse precision matrix defines the estimated interaction network.
+The estimated interaction graph is therefore
+\[
+\hat{A}_{jk} = \mathbb{1}\!\left\{\hat{\Omega}_{jk} \neq 0\right\}.
+\]
 
 All PLN and PLNNetwork models were fit with variational inference using the \texttt{PLNmodels} package~\cite{Chiquet2021}.
 All penalized Poisson regressions were fit with \texttt{glmnet}~\cite{Friedman2010}.
@@ -354,6 +420,9 @@ The primary metric is held-out Poisson deviance, defined as
   \mathcal{D}(y, \hat\mu) = 2\sum_{i} \left( y_i \log\frac{y_i}{\hat\mu_i} - (y_i - \hat\mu_i) \right),
 \]
 where $y_i$ are the observed counts and $\hat\mu_i$ are the predicted means.
+We used Poisson deviance rather than RMSE, correlation, or absolute-error criteria because the prediction target is a count and both competing models are fitted under Poisson mean assumptions.
+Poisson deviance is the natural out-of-sample score for this setting because it evaluates predicted means on the count scale and penalizes errors relative to the likelihood of the observed counts.
+This makes it more appropriate than Gaussian-style losses, which ignore the mean-variance relationship that motivates the comparison in the first place.
 For \texttt{GLMNet(Poisson)}, the regularization parameter $\lambda$ was selected by inner-fold Poisson deviance using \texttt{cv.glmnet}.
 For PLN, the shrinkage parameter $\alpha$ was selected by 3-fold inner cross-validation on Poisson deviance.
 The featureless baseline serves as a lower bound: any algorithm with higher deviance than the featureless baseline provides no useful predictive signal.
@@ -491,7 +560,17 @@ These are empirical heuristics rather than hard thresholds, but they provide a m
   Each panel shows the experimental ground truth (left), the PLNNetwork prediction
   (centre), and the GLMNet(Poisson) prediction (right).
   Edge colour indicates interaction sign (blue: positive, red: negative, grey: mixed).}
-  \label{fig:network_case_studies}
+  \label{fig:network_case_omm12}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{interaction_network_example_host_fitness_2018_2026-03-28}
+  \caption{Ground-truth and inferred networks for the host fitness 2018 dataset.
+  Each panel shows the experimental ground truth (left), the PLNNetwork prediction
+  (centre), and the GLMNet(Poisson) prediction (right).
+  Edge colour indicates interaction sign (blue: positive, red: negative, grey: mixed).}
+  \label{fig:network_case_host}
 \end{figure}
 
 PLNNetwork outperforms \texttt{GLMNet(Poisson)} on four of the five interaction-truth datasets, but the margin depends strongly on the type of biological truth being evaluated (Figure~\ref{fig:network_f1}).
@@ -499,14 +578,17 @@ On the three broad edge-recovery datasets, PLNNetwork has the clearer advantage.
 Its F1 exceeds that of \texttt{GLMNet(Poisson)} on OMM12 ($0.86$ versus $0.29$), OMM12 keystone 2023 ($0.62$ versus $0.21$), and PairInteraX ($0.23$ versus $0.02$).
 These datasets reward recovery of a global undirected interaction structure, which matches the inductive bias of a sparse latent precision matrix.
 
-The OMM12 example in Figure~\ref{fig:network_case_studies} illustrates this contrast.
+The OMM12 example in Figure~\ref{fig:network_case_omm12} illustrates this contrast.
 The experimental graph is relatively dense and dominated by negative interactions.
 PLNNetwork recovers much of that structure, whereas \texttt{GLMNet(Poisson)} returns a substantially sparser graph with a different balance of edge signs.
 
 The local and directional datasets tell a more nuanced story.
 On butyrate assembly 2021, PLNNetwork retains a modest advantage ($0.36$ versus $0.27$).
 On host fitness 2018, however, the ranking reverses and \texttt{GLMNet(Poisson)} achieves the best overall recovery ($0.95$ versus $0.80$).
-In that setting, the ground truth is driven by targeted pairwise effects rather than by a broad undirected community network, and nodewise Poisson regressions appear better aligned with that local signal.
+Figure~\ref{fig:network_case_host} shows this difference directly.
+PLNNetwork recovers part of the experimentally supported structure but misses edges involving AO and introduces a positive LP--LB edge that is not present in the truth.
+By contrast, \texttt{GLMNet(Poisson)} closely matches the local negative interaction pattern and misses only one true edge.
+In this setting, the ground truth is driven by targeted pairwise effects rather than by a broad undirected community network, and nodewise Poisson regressions appear better aligned with that local signal.
 
 \subsection{Computational scaling}
 \label{subsec:computational-scaling}
