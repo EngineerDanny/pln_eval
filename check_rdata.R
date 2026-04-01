@@ -1,0 +1,7 @@
+e <- new.env()
+load("/projects/genomic-ml/da2343/PLN/pln_eval/bmr/amgut1.RData", envir=e)
+cat("Variables:", ls(e), "\n")
+obj <- get(ls(e)[1], envir=e)
+cat("Class:", class(obj), "\n")
+cat("Dim:", dim(obj), "\n")
+cat("Names/colnames head:", head(names(obj)), "\n")
