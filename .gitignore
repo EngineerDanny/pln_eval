@@ -32,3 +32,4 @@ worker_setup.R
 *.zip
 *.tar.gz
 *.tar
+paper/JMLR_SUBMISSION_CHECKLIST.md
