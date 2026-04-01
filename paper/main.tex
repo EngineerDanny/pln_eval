@@ -44,7 +44,7 @@ PLNNetwork recovers ecological interaction networks by estimating a sparse laten
 No study has evaluated these competing approaches against experimentally validated microbial interactions, which are necessary for a principled comparison of edge recovery performance.
 
 In this paper, we present a systematic empirical benchmark addressing both tasks.
-For prediction, we compare PLN and \texttt{GLMNet(Poisson)} across 28 real microbiome datasets under a Leave-One-Taxon-Out five-fold cross-validation scheme~\cite{agyapong2025cross}, evaluating held-out Poisson deviance across a wide range of sample sizes and dimensionalities.
+For prediction, we compare PLN and \texttt{GLMNet(Poisson)} across 34 real microbiome datasets under a Leave-One-Taxon-Out five-fold cross-validation scheme~\cite{agyapong2025cross}, evaluating held-out Poisson deviance across a wide range of sample sizes and dimensionalities.
 For network inference, we evaluate PLN with graphical lasso against \texttt{GLMNet} neighbourhood selection using five experimentally validated interaction datasets spanning defined microbial communities and in vivo systems.
 Together, these experiments provide the first unified empirical map of when PLN's latent dependence modeling confers a genuine advantage over penalized Poisson regression.
 
@@ -55,46 +55,6 @@ Section~4 presents results for prediction and network inference.
 Section~5 discusses computational scaling.
 Section~6 concludes.
 
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=0.62\textwidth,
-  height=0.40\textwidth,
-  xlabel={$N/D$ ratio (log scale)},
-  ylabel={PLN improvement over \texttt{GLMNet} (\%)},
-  xmode=log,
-  xmin=0.06, xmax=45,
-  ymin=-38, ymax=52,
-  ymajorgrids=true,
-  grid style={dotted, gray!40},
-  tick label style={font=\footnotesize},
-  label style={font=\footnotesize},
-  legend style={font=\footnotesize, at={(0.97,0.97)}, anchor=north east},
-  legend cell align=left,
-]
-\addplot[dashed, thick, gray!70, forget plot] coordinates {(0.06,0)(45,0)};
-\addplot[only marks, mark=*, mark size=2.2pt, blue!75!black]
-  coordinates {
-    (0.08,46.1)(0.20,27.1)(0.41,38.3)(0.42,36.5)(0.47,8.4)
-    (0.63,1.5)(0.92,1.6)(1.15,29.8)(1.29,13.2)
-    (1.76,10.6)(2.25,8.6)(2.83,9.7)(5.33,2.6)
-  };
-\addlegendentry{PLN wins ($n=13$)}
-\addplot[only marks, mark=square*, mark size=2.2pt, red!75!black]
-  coordinates {
-    (1.40,-32.8)(1.56,-13.5)(1.99,-0.8)
-    (5.07,-24.6)(6.74,-4.8)(11.07,-1.1)(18.30,-1.2)(28.80,-7.2)
-  };
-\addlegendentry{\texttt{GLMNet} wins ($n=8$)}
-\end{axis}
-\end{tikzpicture}
-\caption{PLN improvement over \texttt{GLMNet(Poisson)} in held-out Poisson deviance as a function of the $N/D$ ratio across 28 real microbiome datasets (one point per dataset).
-Positive values indicate PLN achieves lower deviance.
-The dashed line marks the break-even point.
-PLN is favored at low $N/D$ where the latent covariance is estimable; \texttt{GLMNet} dominates when $N \gg D$.}
-\label{fig:nd-regime}
-\end{figure}
 
 \section{Related Work}
 
@@ -150,7 +110,7 @@ Batardi\`ere et al. (2025)~\cite{Batardiere2025ZIPLN} & High-zero simulations; c
 \midrule
 Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human gut microbiome (T2D) & PLN-Tree, mean-field PLN, PLN & ELBO/log-likelihood; Shannon, Simpson, Bray-Curtis diversity; downstream classification accuracy \\
 \midrule
-\textbf{This work (2026)} & 28 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Prediction: held-out Poisson deviance under 5-fold LOTO-CV; network inference: F1 against experimental ground truth; runtime; memory \\
+\textbf{This work (2026)} & 34 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Prediction: held-out Poisson deviance under 5-fold LOTO-CV; network inference: F1 against experimental ground truth; runtime; memory \\
 \bottomrule
 \end{tabular}
 \label{tab:related_work}
@@ -158,7 +118,7 @@ Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human 
 
 \paragraph{Summary of contributions.}
 \begin{itemize}
-  \item We benchmark PLN against \texttt{GLMNet(Poisson)} for count prediction across 28 real microbiome datasets under a unified Leave-One-Taxon-Out cross-validation protocol, providing the first held-out comparison of these two model classes on real data.
+  \item We benchmark PLN against \texttt{GLMNet(Poisson)} for count prediction across 34 real microbiome datasets under a unified Leave-One-Taxon-Out cross-validation protocol, providing the first held-out comparison of these two model classes on real data.
   \item We identify the $N/D$ ratio as the primary empirical predictor of relative performance. PLN improves on \texttt{GLMNet(Poisson)} by up to 46\% in low-$N/D$ settings where the latent covariance is recoverable from data; \texttt{GLMNet(Poisson)} dominates when $N \gg D$.
   \item We evaluate PLNNetwork and \texttt{GLMNet} neighbourhood selection against experimentally validated microbial interaction datasets, providing the first comparison of these approaches on real biological ground truth rather than simulated or statistically modified networks.
 \end{itemize}
@@ -171,7 +131,7 @@ Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human 
 \subsubsection{Count-prediction datasets}
 \label{subsubsec:count-prediction-datasets}
 
-We evaluated count prediction on a heterogeneous benchmark of 28 microbiome datasets spanning oral, skin, nasal, stool, infant, pediatric, and general gut settings, together with several disease-focused collections including colorectal cancer, inflammatory bowel disease, \textit{Clostridium difficile} infection, HIV, nonalcoholic steatohepatitis, obesity, Parkinson's disease, rheumatoid arthritis, and type~1 diabetes.
+We evaluated count prediction on a heterogeneous benchmark of 34 microbiome datasets spanning oral, skin, nasal, stool, infant, pediatric, and general gut settings, together with several disease-focused collections including colorectal cancer, inflammatory bowel disease, \textit{Clostridium difficile} infection, HIV, nonalcoholic steatohepatitis, obesity, Parkinson's disease, rheumatoid arthritis, and type~1 diabetes.
 The retained benchmark set includes feature tables at the family, genus, species, and OTU levels and covers a broad range of sample sizes and feature dimensions.
 Across datasets, the number of samples ranged from $N=32$ to $N=18{,}364$, the number of features ranged from $D=24$ to $D=373$, and the fraction of zero entries in the benchmarked abundance matrices ranged from $30.64\%$ to $93.01\%$.
 
@@ -244,7 +204,7 @@ MBQC integrated OTUs~\cite{MBQC2017} & stool benchmark & Family & 18364 & 257 & 
 	\node[pbox] (p3) at (2.3, 4.0)  {ELBO / BIC / AIC\\(in-sample)};
 	\draw[parrow] (p1) -- (p2);
 	\draw[parrow] (p2) -- (p3);
-	\node[tbox] (t1) at (8.9, 7.3)  {28 real microbiome\\datasets};
+	\node[tbox] (t1) at (8.9, 7.3)  {34 real microbiome\\datasets};
 	\node[tbox] (t2) at (8.9, 5.65) {PLN vs \texttt{GLMNet(Poisson)}};
 	\node[tbox] (t3) at (8.9, 4.0)  {Held-out Poisson\\deviance (LOTO-CV)};
 \draw[tarrow] (t1) -- (t2);
@@ -354,7 +314,7 @@ Prediction and network benchmark jobs were executed as single-core Slurm jobs.
 PLN-based learners were additionally run with one Torch thread to avoid conflating algorithmic differences with thread-level speedups.
 
 Runtime and memory scaling were profiled using the \texttt{atime} R package on the Vogtmann et al.\ stool species dataset~\cite{Vogtmann2016CRC}.
-For the saved profiling run, the number of taxa $p$ was varied from 10 to 1000 at a fixed sample size of $N=110$, and each configuration was run three times.
+For the saved profiling run, the number of taxa $D$ was varied from 10 to 1000 at a fixed sample size of $N=110$, and each configuration was run three times.
 We report median wall time and peak memory across those repeated measurements.
 
 \section{Results}
@@ -362,6 +322,53 @@ We report median wall time and peak memory across those repeated measurements.
 
 \subsection{Performance Variation Across Datasets}
 \label{subsec:count-prediction-results}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.62\textwidth,
+  height=0.38\textwidth,
+  xlabel={$N/D$ ratio (log scale)},
+  ylabel={Mean absolute correlation (MAC)},
+  xmode=log,
+  xmin=0.05, xmax=100,
+  ymin=0, ymax=0.25,
+  ytick={0, 0.05, 0.10, 0.15, 0.20, 0.25},
+  yticklabel style={/pgf/number format/fixed, /pgf/number format/fixed zerofill,
+                    /pgf/number format/precision=2, font=\footnotesize},
+  ymajorgrids=true,
+  xmajorgrids=true,
+  grid style={dotted, gray!40},
+  tick label style={font=\footnotesize},
+  label style={font=\footnotesize},
+  legend style={font=\footnotesize, at={(0.97,0.97)}, anchor=north east},
+  legend cell align=left,
+]
+\addplot[only marks, mark=*, mark size=2.2pt, blue!75!black]
+  coordinates {
+    (0.30,0.167)(0.37,0.092)(0.41,0.118)(0.42,0.117)(0.47,0.056)
+    (0.51,0.130)(0.63,0.063)(0.89,0.163)(0.92,0.067)
+    (1.16,0.156)(1.31,0.091)(1.76,0.056)(2.13,0.237)(2.25,0.227)
+    (2.85,0.112)(3.70,0.079)(3.96,0.085)(4.15,0.231)(4.39,0.074)
+    (5.33,0.086)
+  };
+\addlegendentry{PLN wins ($n=21$)}
+\addplot[only marks, mark=square*, mark size=2.2pt, red!75!black]
+  coordinates {
+    (1.40,0.173)(1.56,0.055)(1.99,0.049)(2.28,0.182)
+    (6.74,0.033)(11.08,0.110)(18.30,0.058)
+    (28.80,0.127)(77.74,0.041)
+  };
+\addlegendentry{\texttt{GLMNet} wins ($n=9$)}
+\end{axis}
+\end{tikzpicture}
+\caption{Dataset-level winner across 30 real microbiome datasets as a function
+of the sample-to-taxon ratio $N/D$ and mean absolute correlation (MAC) among taxa.
+PLN wins predominantly in the upper-left region (low $N/D$, high MAC);
+\texttt{GLMNet(Poisson)} wins predominantly in the lower-right region (high $N/D$, low MAC).}
+\label{fig:mac-nd-2d}
+\end{figure}
 
 \begin{figure}[t]
   \centering
@@ -377,17 +384,23 @@ We report median wall time and peak memory across those repeated measurements.
   \label{fig:count_pred_case_study}
 \end{figure}
 
-Neither PLN nor GLMNet(Poisson) uniformly dominates across all benchmark datasets
-(Figure~\ref{fig:count_pred_case_study}).
-The outcome depends primarily on two dataset characteristics: the sample-to-taxon
-ratio $n/p$ and the mean absolute correlation (MAC) among taxa.
-PLN tends to win on datasets with high MAC, where substantial pairwise correlations
-among taxa make the latent covariance structure modelled by PLN informative.
-GLMNet(Poisson) tends to win when $n/p$ is large --- as in MBQC integrated
-($n=18{,}270$, $p=235$) and Diabimmune Karelia ($n=1{,}584$, $p=55$) --- and on
-datasets with low MAC, where the latent covariance modelled by PLN carries
-little predictive information.
-In all datasets shown, both algorithms improve upon the featureless baseline.
+Neither PLN nor GLMNet(Poisson) uniformly dominates across the 30 benchmark datasets
+(Figure~\ref{fig:mac-nd-2d}).
+The sample-to-taxon ratio $N/D$ is the primary determinant of the outcome, yielding an AUC of 0.83 for predicting the dataset-level winner on its own.
+The mean absolute correlation (MAC) among taxa, shown on the $y$-axis of Figure~\ref{fig:mac-nd-2d}, provides an intuitive account of the pattern: PLN tends to win in the upper-left region where $N/D$ is small and inter-taxon correlations are strong, while GLMNet(Poisson) wins in the lower-right where $N/D$ is large and correlations are weak.
+Statistically, however, overdispersion --- the mean variance-to-mean count ratio across taxa --- is a stronger secondary predictor than MAC, raising AUC from 0.83 to 0.93 when combined with $N/D$, compared to 0.84 for MAC.
+This is consistent with PLN's design: the latent Gaussian layer explicitly absorbs extra-Poisson variance, so its advantage grows with the degree to which counts deviate from the Poisson assumption.
+
+Figure~\ref{fig:count_pred_case_study} illustrates both directions with representative datasets.
+In the PLN-winning cases, Lozupone HIV family ($N/D = 0.89$), Zeller CRC genus ($N/D = 0.50$), Schubert CDI family ($N/D = 4.39$), and amgut2 ($N/D = 2.13$) all show PLN achieving substantially lower deviance than GLMNet(Poisson), with differences ranging from 0.08 to 0.49 deviance units and $p < 0.001$ in each case.
+In the GLMNet(Poisson)-winning cases, CosteaPI 2017 stool ($N/D = 1.56$, low overdispersion) and the two large-sample datasets MBQC integrated ($N=18{,}270$) and Diabimmune Karelia ($N=1{,}584$) all show GLMNet(Poisson) achieving lower deviance, with PLN offering no improvement despite the available sample sizes.
+In all eight representative datasets, both algorithms improve upon the featureless baseline.
+
+\textbf{Implications for algorithm selection.}
+No single algorithm dominates across all datasets.
+The choice between PLN and GLMNet(Poisson) depends on properties of the data that are not always known in advance, including the strength and structure of inter-taxon covariance, the sparsity pattern of the count matrix, and the signal-to-noise ratio of the prediction task --- all of which interact with $N$, $D$, and their ratio.
+A practical guideline emerges from the results: when $N/D$ is low or overdispersion is high, PLN is the stronger choice; when $N/D$ is large or counts are near-Poisson, GLMNet(Poisson) is competitive and considerably faster.
+Practitioners should treat these as starting heuristics and empirically validate algorithm choice on their specific datasets.
 
 \subsection{Network-inference results}
 \label{subsec:network-inference-results}
@@ -405,19 +418,8 @@ In all datasets shown, both algorithms improve upon the featureless baseline.
 
 \begin{figure}[t]
   \centering
-  \begin{subfigure}[b]{\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{interaction_network_example_omm12_2026-03-28}
-    \caption{OMM12}
-    \label{fig:network_omm12}
-  \end{subfigure}
-  \begin{subfigure}[b]{\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{interaction_network_example_host_fitness_2018_2026-03-28}
-    \caption{Host fitness 2018}
-    \label{fig:network_host_fitness}
-  \end{subfigure}
-  \caption{Ground-truth and inferred networks for two representative datasets.
+  \includegraphics[width=\textwidth]{interaction_network_example_omm12_2026-03-28}
+  \caption{Ground-truth and inferred networks for the OMM12 dataset.
   Each panel shows the experimental ground truth (left), the PLNNetwork prediction
   (centre), and the GLMNet(Poisson) prediction (right).
   Edge colour indicates interaction sign (blue: positive, red: negative, grey: mixed).}
@@ -449,38 +451,32 @@ On butyrate assembly 2021, PLNNetwork retains a small advantage
   \centering
   \includegraphics[width=\textwidth]{vogtmann_stool_species_pln_glmnet_p_scaling}
   \caption{Median wall time (left) and peak memory (right) as a function of the
-  number of taxa $p$, profiled on the Vogtmann et al.\ stool species dataset
+  number of taxa $D$, profiled on the Vogtmann et al.\ stool species dataset
   ($N = 110$) using the \texttt{atime} R package.
-  Each point is the median of three runs; $p$ ranges from 10 to 1000.
+  Each point is the median of three runs; $D$ ranges from 10 to 1000.
   Both axes are on a log scale.}
   \label{fig:atime}
 \end{figure}
 
 PLN is substantially more expensive than GLMNet(Poisson) in both wall time and
-peak memory at all values of $p$ (Figure~\ref{fig:atime}).
-Wall time for PLN grows approximately as $O(p^2)$ to $O(p^3)$, reaching 76\,s
-at $p = 1000$, while GLMNet(Poisson) scales approximately as $O(p)$, reaching
+peak memory at all values of $D$ (Figure~\ref{fig:atime}).
+Wall time for PLN grows approximately as $O(D^2)$ to $O(D^3)$, reaching 76\,s
+at $D = 1000$, while GLMNet(Poisson) scales approximately as $O(D)$, reaching
 0.28\,s --- a roughly 280-fold difference at the largest setting.
-Peak memory shows a similar gap: PLN uses 392\,MB at $p = 1000$, compared to
+Peak memory shows a similar gap: PLN uses 392\,MB at $D = 1000$, compared to
 79\,MB for GLMNet(Poisson).
 Despite the steeper scaling, PLN remains feasible for the dataset sizes
 typical of microbiome benchmarks: wall time stays below 80\,s and peak memory
-below 400\,MB across the full range of $p$ tested.
+below 400\,MB across the full range of $D$ tested.
 
 \section{Discussion}
 \label{sec:discussion}
 
-The count-prediction results suggest that the relative advantage of PLN over
-GLMNet(Poisson) depends on two dataset characteristics: the sample-to-taxon
-ratio $n/p$ and the mean absolute correlation (MAC) among taxa.
-When $n/p$ is low or MAC is high, PLN benefits from explicitly modelling the
-latent covariance structure among taxa; the cost of estimating a $p \times p$
-covariance matrix is justified by the information it encodes.
-Conversely, when $n/p$ is large, the independent-taxon assumption of
-GLMNet(Poisson) is less harmful, and lasso regularisation achieves good
-predictive performance without modelling inter-taxon dependence.
-On datasets with low MAC, the latent covariance carries little predictive
-information, removing PLN's main advantage regardless of $n/p$.
+The count-prediction results show that $N/D$ is the primary determinant of relative performance.
+Overdispersion is the strongest secondary predictor: adding it to $N/D$ raises the AUC for predicting the dataset-level winner from 0.83 to 0.93, compared to 0.84 when MAC is added instead.
+This is consistent with PLN's theoretical motivation: the latent Gaussian layer explicitly absorbs extra-Poisson variance, so its benefit grows with the degree to which count distributions deviate from the Poisson assumption.
+When $N/D$ is low, PLN benefits from jointly modelling the full covariance structure among taxa; the cost of estimating a $D \times D$ matrix is outweighed by the information it captures.
+When $N/D$ is large, lasso regularisation achieves competitive predictive performance without modelling inter-taxon dependence, and PLN's latent structure confers diminishing returns.
 
 The network-inference results reflect a structural difference between the two
 approaches.
@@ -513,15 +509,13 @@ execution.
 \label{sec:conclusion}
 
 Neither PLN nor GLMNet(Poisson) uniformly dominates across the benchmark.
-For count prediction, $n/p$ and MAC are informative signals for algorithm
-selection: PLN is the stronger choice when $n/p$ is low or inter-taxon
-correlations are substantial, while GLMNet(Poisson) is competitive and
-considerably faster when $n/p$ is large or correlations are weak.
+For count prediction, $N/D$ is the primary signal for algorithm selection, with overdispersion providing the strongest secondary discriminant.
+PLN is the stronger choice when $N/D$ is low and count distributions are substantially overdispersed; GLMNet(Poisson) is competitive and considerably faster when $N/D$ is large.
 For network inference, PLNNetwork better recovers broad, undirected interaction
 networks, while GLMNet(Poisson) nodewise regression is better suited to local
 or directional interactions.
 PLN's wall time is approximately two to three orders of magnitude higher than
-GLMNet(Poisson) across the range of $p$ tested, though it remains within
+GLMNet(Poisson) across the range of $D$ tested, though it remains within
 practical limits for current microbiome dataset sizes.
 
 \bibliographystyle{unsrtnat}
