@@ -91,6 +91,7 @@ In this paper, we present a systematic empirical benchmark addressing both tasks
 For prediction, we compare PLN and \texttt{GLMNet(Poisson)} across 28 real microbiome datasets under a Leave-One-Taxon-Out cross-validation (LOTO-CV) scheme~\cite{agyapong2025cross}, evaluating held-out Poisson deviance across a wide range of sample sizes and dimensionalities.
 For network inference, we evaluate PLNNetwork against \texttt{GLMNet} neighbourhood selection using five experimentally validated interaction datasets spanning defined microbial communities and in vivo systems.
 Together, these experiments provide the first unified empirical map of when PLN's latent dependence modeling confers a genuine advantage over penalized Poisson regression.
+Figure~\ref{fig:pipeline} summarizes the shift from earlier in-sample evaluation practice to the held-out count-prediction protocol used in this study.
 
 The remainder of the paper is organized as follows.
 Section~2 reviews related work and situates this study within the existing benchmark literature.
@@ -476,9 +477,9 @@ Its latent Gaussian layer is most useful when counts depart substantially from t
   \includegraphics[width=\textwidth]{count_prediction_case_study_benchmark}
   \caption{Representative datasets illustrating both directions of the PLN
   vs.\ GLMNet(Poisson) comparison.
-  Top: datasets where PLN achieves lower mean Poisson deviance.
-  Bottom: datasets where GLMNet(Poisson) achieves lower mean Poisson deviance.
-  Each panel reports mean Poisson deviance (mean $\pm$ SE across three outer
+  Top: datasets where PLN achieves lower held-out Poisson deviance.
+  Bottom: datasets where GLMNet(Poisson) achieves lower held-out Poisson deviance.
+  Each panel reports held-out Poisson deviance (mean $\pm$ SE across three outer
   cross-validation folds) for PLN, GLMNet(Poisson), and the featureless baseline.
   The annotated difference and $p$-value are from the paired comparison of PLN
   and GLMNet(Poisson) across folds.}
@@ -517,7 +518,7 @@ These are empirical heuristics rather than hard thresholds, but they provide a m
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\textwidth]{interaction_network_example_omm12_2026-03-28}
+  \includegraphics[width=\textwidth]{interaction_network_example_omm12_2026-04-01}
   \caption{Ground-truth and inferred networks for the OMM12 dataset.
   Each panel shows the experimental ground truth (left), the PLNNetwork prediction
   (centre), and the GLMNet(Poisson) prediction (right).
@@ -527,7 +528,7 @@ These are empirical heuristics rather than hard thresholds, but they provide a m
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\textwidth]{interaction_network_example_host_fitness_2018_2026-03-28}
+  \includegraphics[width=\textwidth]{interaction_network_example_host_fitness_2018_2026-04-01}
   \caption{Ground-truth and inferred networks for the host fitness 2018 dataset.
   Each panel shows the experimental ground truth (left), the PLNNetwork prediction
   (centre), and the GLMNet(Poisson) prediction (right).

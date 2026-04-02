@@ -238,8 +238,8 @@ if (nrow(meas_dt) > 0) {
     ) +
     scale_x_log10() +
     scale_y_log10() +
-    scale_color_manual(values = c("GLMNet (Poisson)" = "#D55E00", "PLN" = "#00BFC4")) +
-    scale_fill_manual(values = c("GLMNet (Poisson)" = "#D55E00", "PLN" = "#00BFC4")) +
+    scale_color_manual(values = c("GLMNet (Poisson)" = "#D55E00", "PLN" = "#1f78b4")) +
+    scale_fill_manual(values = c("GLMNet (Poisson)" = "#D55E00", "PLN" = "#1f78b4")) +
     theme_bw() +
     labs(
       x = "p",

@@ -79,7 +79,7 @@ plot_graph <- function(edge_dt, main_title, show_legend = FALSE) {
   edge_widths <- if (length(eweights)) 1 + 5 * (eweights / max(eweights)) else numeric()
   edge_colors <- ifelse(
     E(g)$edge_sign == "positive", "#1f78b4",
-    ifelse(E(g)$edge_sign == "negative", "#e31a1c", "grey55")
+    ifelse(E(g)$edge_sign == "negative", "#D55E00", "grey55")
   )
 
   plot(
@@ -89,7 +89,7 @@ plot_graph <- function(edge_dt, main_title, show_legend = FALSE) {
     vertex.label.cex = 0.75,
     vertex.label.family = "sans",
     vertex.label.color = "black",
-    vertex.size = 18,
+    vertex.size = 20,
     vertex.color = "grey96",
     vertex.frame.color = "grey35",
     vertex.label.dist = 0.2,
@@ -106,9 +106,9 @@ plot_graph <- function(edge_dt, main_title, show_legend = FALSE) {
   if (show_legend) {
     legend(
       "bottomleft",
-      legend = c("Positive", "Negative", "Mixed"),
-      col = c("#1f78b4", "#e31a1c", "grey55"),
-      lwd = c(2.5, 2.5, 2.5),
+      legend = c("Positive", "Negative"),
+      col = c("#1f78b4", "#D55E00"),
+      lwd = c(2.5, 2.5),
       bty = "n",
       cex = 0.78,
       inset = c(0.01, 0.02)
