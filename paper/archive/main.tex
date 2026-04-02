@@ -336,8 +336,8 @@ Web Figure~2 of the Supplementary Material shows that the sample-to-taxon ratio 
 PLN tends to win when $N/D$ is small and the average dependence among taxa is strong.
 \texttt{GLMNet(Poisson)} tends to win when $N/D$ is large and inter-taxon dependence is weaker.
 
-Mean absolute correlation (MAC) provides a visually intuitive summary of this pattern, but overdispersion is the stronger secondary signal.
-When added to $N/D$, overdispersion increases AUC from 0.83 to 0.93, whereas MAC increases it only to 0.84.
+MAC is the strongest secondary predictor: adding it to $N/D$ increases AUC from 0.83 to 0.84, and it provides a visually intuitive summary of inter-taxon dependence strength.
+Overdispersion is an additional secondary signal that, when combined with $N/D$, increases AUC further to 0.93.
 This aligns with the structure of the PLN model.
 Its latent Gaussian layer is most useful when counts depart substantially from the Poisson assumption and when joint dependence among taxa carries predictive signal.
 
