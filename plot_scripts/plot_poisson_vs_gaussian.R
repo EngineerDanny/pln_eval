@@ -1,6 +1,8 @@
 data_name <- "mixmpln"
 data_path <- paste0("/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/", data_name, ".csv")
-output_path <- paste0("/projects/genomic-ml/da2343/PLN/pln_eval/out/poisson_vs_gaussian_", data_name, ".png")
+figures_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/figures/poisson_vs_gaussian"
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+output_path <- file.path(figures_dir, paste0("poisson_vs_gaussian_", data_name, ".png"))
 
 plot_data <- data.table::fread(data_path)
 plot_data_filtered <- plot_data[learner_id %in% c("regr.cv_glmnet", "regr.pln")]

@@ -2,6 +2,9 @@ library(data.table)
 library(ggplot2)
 library(ggrepel)
 
+figures_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/figures/poisson_vs_gaussian"
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+
 dataset_info <- data.table(
   dataset = c("amgut2_297_samples", "ioral_86_samples", "baxter_crc_490_samples"),
   dataset_name = c("amgut2", "ioral", "baxter_crc"),
@@ -147,17 +150,13 @@ gg <- ggplot(score_summary_with_tests, aes(x = mean_deviance, y = algorithm)) +
   )
 
 ggsave(
-  "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/glmnet_wins_13_nov.png",
+  file.path(figures_dir, "glmnet_wins_13_nov.png"),
   plot = gg,
   width = 5,
   height = 2,
   #width = 2.5,
   #height = 1.8,
   dpi = 700)
-
-
-
-
 
 
 if(F){
@@ -190,4 +189,3 @@ with(
   )
 )
 }
-

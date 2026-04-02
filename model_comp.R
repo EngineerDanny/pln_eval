@@ -9,10 +9,13 @@ library(batchtools)
 library(PLNmodels)
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) < 1) stop("Usage: Rscript model_comp.R <dataname_or_path> [memory_mb] [walltime_hours]")
+if (length(args) < 1) {
+  stop("Usage: Rscript model_comp.R <dataname_or_path> [memory_mb] [walltime_hours]")
+}
 dataname_or_path <- args[1]
 slurm_memory     <- if (length(args) >= 2) as.integer(args[2]) else 2048L    # MB per cpu
 slurm_walltime   <- if (length(args) >= 3) as.integer(args[3]) * 3600L else 3600L  # default 1h
+array_max_size   <- 25000L
 
 # ----------------------------------------------------------------
 # Paths
@@ -128,9 +131,16 @@ reg <- batchtools::makeExperimentRegistry(
 )
 
 mlr3batchmark::batchmark(reg.bench.grid, store_models = FALSE, reg = reg)
-job.table <- batchtools::getJobTable(reg = reg)
+job.table <- batchtools::findNotSubmitted(reg = reg)
+job.table[, chunk := batchtools::chunk(job.id, chunk.size = array_max_size, shuffle = FALSE)]
+
+cat(sprintf(
+  "Preparing %d jobs in %d array submissions (max array size %d)\n",
+  nrow(job.table), data.table::uniqueN(job.table$chunk), array_max_size
+))
 
 batchtools::submitJobs(
+  ids = job.table,
   resources = list(
     walltime = slurm_walltime, memory = slurm_memory,
     ncpus = 1L, ntasks = 1L, chunks.as.arrayjobs = TRUE

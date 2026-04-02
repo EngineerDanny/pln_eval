@@ -1,0 +1,58 @@
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{concept_nov}
+\caption{Conceptual contrast between earlier evaluation practice and the count-prediction protocol used in this study.
+Previous work often assessed count models with in-sample fit criteria computed on the observed abundance matrix.
+Our benchmark instead withholds a target taxon, predicts its counts out of sample from the remaining taxa, and scores those predictions with held-out Poisson deviance under leave-one-taxon-out cross-validation.}
+\label{fig:pipeline}
+\end{figure}
+\efloatseparator
+ 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{count_prediction_case_study_benchmark}
+  \caption{Representative datasets illustrating both directions of the PLN
+  vs.\ GLMNet(Poisson) comparison.
+  Top: datasets where PLN achieves lower held-out Poisson deviance.
+  Bottom: datasets where GLMNet(Poisson) achieves lower held-out Poisson deviance.
+  Each panel reports held-out Poisson deviance (mean $\pm$ SE across three outer
+  cross-validation folds) for PLN, GLMNet(Poisson), and the featureless baseline.
+  The annotated difference and $p$-value are from the paired comparison of PLN
+  and GLMNet(Poisson) across folds.}
+  \label{fig:count_pred_case_study}
+\end{figure}
+\efloatseparator
+ 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{interaction_truth_benchmarks_f1_2026-03-28}
+  \caption{Edge-recovery F1 on five experimental ground-truth datasets for
+  PLNNetwork and GLMNet(Poisson).
+  Datasets are grouped by ground-truth type: broad edge recovery (OMM12,
+  OMM12 keystone 2023, PairInteraX) and local/directional (butyrate assembly 2021,
+  host fitness 2018).}
+  \label{fig:network_f1}
+\end{figure}
+\efloatseparator
+ 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{interaction_network_example_omm12_2026-04-01}
+  \caption{Ground-truth and inferred networks for the OMM12 dataset.
+  Each panel shows the experimental ground truth (left), the PLNNetwork prediction
+  (centre), and the GLMNet(Poisson) prediction (right).
+  Edge colour indicates interaction sign (blue: positive, orange: negative).}
+  \label{fig:network_case_omm12}
+\end{figure}
+\efloatseparator
+ 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{vogtmann_stool_species_pln_glmnet_p_scaling}
+  \caption{Median wall time (left) and peak memory (right) as a function of the
+  number of taxa $D$, profiled on the Vogtmann et al.\ stool species dataset
+  ($N = 110$) using the \texttt{atime} R package.
+  Each point is the median of three runs; $D$ ranges from 10 to 1000.
+  Both axes are on a log scale.}
+  \label{fig:atime}
+\end{figure}

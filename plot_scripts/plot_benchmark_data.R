@@ -7,6 +7,9 @@ library(data.table)
 library(ggplot2)
 library(ggrepel)
 
+figures_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval/figures/poisson_vs_gaussian"
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+
 dataset_info <- data.table(
   dataset = c("hmp2prot_47_samples", "hmp216S_47_samples"),
   dataset_name = c("hmp2prot", "hmp216S"),
@@ -93,7 +96,7 @@ gg <- ggplot(score_summary, aes(x = mean_deviance, y = algorithm)) +
     legend.position = "none"
   )
 ggsave(
-       "/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/PLN_special_bmr.png",
+       file.path(figures_dir, "PLN_special_bmr.png"),
        #"/projects/genomic-ml/da2343/PLN/pln_eval/data/poisson_vs_gaussian/glmnet_outperforms_bmr.png",
        plot = gg,
        width = 3, #4, 
