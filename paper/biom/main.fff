@@ -9,54 +9,6 @@ Our benchmark instead withholds a target taxon, predicts its counts out of sampl
 \efloatseparator
  
 \begin{figure}[t]
-\centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=0.92\textwidth,
-  height=0.58\textwidth,
-  xlabel={$N/D$ ratio (log scale)},
-  ylabel={Mean absolute correlation (MAC)},
-  xmode=log,
-  xmin=0.05, xmax=100,
-  ymin=0, ymax=0.25,
-  ytick={0, 0.05, 0.10, 0.15, 0.20, 0.25},
-  yticklabel style={/pgf/number format/fixed, /pgf/number format/fixed zerofill,
-                    /pgf/number format/precision=2, font=\footnotesize},
-  ymajorgrids=true,
-  xmajorgrids=true,
-  grid style={dotted, gray!40},
-  tick label style={font=\footnotesize},
-  label style={font=\footnotesize},
-  legend style={font=\footnotesize, at={(0.97,0.97)}, anchor=north east},
-  legend cell align=left,
-]
-\addplot[only marks, mark=*, mark size=2.2pt, blue!75!black]
-  coordinates {
-    (0.30,0.167)(0.37,0.092)(0.41,0.118)(0.42,0.117)(0.47,0.056)
-    (0.51,0.130)(0.63,0.063)(0.89,0.163)(0.92,0.067)
-    (1.16,0.156)(1.31,0.091)(1.76,0.056)(2.13,0.237)(2.25,0.227)
-    (2.85,0.112)(3.70,0.079)(3.96,0.085)(4.15,0.231)(4.39,0.074)
-    (5.33,0.086)
-  };
-\addlegendentry{PLN wins}
-\addplot[only marks, mark=square*, mark size=2.2pt, red!75!black]
-  coordinates {
-    (1.40,0.173)(1.56,0.055)(1.99,0.049)(2.28,0.182)
-    (6.74,0.033)(11.08,0.110)(18.30,0.058)
-    (28.80,0.127)(77.74,0.041)
-  };
-\addlegendentry{\texttt{GLMNet} wins}
-\end{axis}
-\end{tikzpicture}
-\caption{Dataset-level winner across the count-prediction benchmark as a function
-of the sample-to-taxon ratio $N/D$ and mean absolute correlation (MAC) among taxa.
-PLN wins predominantly in the upper-left region (low $N/D$, high MAC);
-\texttt{GLMNet(Poisson)} wins predominantly in the lower-right region (high $N/D$, low MAC).}
-\label{fig:mac-nd-2d}
-\end{figure}
-\efloatseparator
- 
-\begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{count_prediction_case_study_benchmark}
   \caption{Representative datasets illustrating both directions of the PLN

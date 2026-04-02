@@ -26,30 +26,3 @@ This work (2026) & 28 real microbiome datasets; 5 experimental interaction datas
 \end{tabular}
 \label{tab:related_work}
 \end{table}
-\efloatseparator
- 
-\begin{table}[htbp]
-\caption{Strongest count-prediction contrasts in the retained benchmark.
-Positive $\Delta$ indicates lower held-out Poisson deviance for PLN relative to \texttt{GLMNet(Poisson)}.
-Negative $\Delta$ indicates the opposite.}
-\label{tab:count-prediction-summary}
-\centering
-\scriptsize
-\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{0.94}
-\begin{tabular}{>{\raggedright\arraybackslash}p{0.24\textwidth}rrrr>{\raggedleft\arraybackslash}p{0.08\textwidth}}
-\toprule
-Dataset & $N$ & $D$ & GLMNet & PLN & $\Delta$ \\
-\midrule
-HMP 2012 & 91 & 222 & 0.3365 & 0.2075 & +38.3\% \\
-Ross obesity & 63 & 123 & 1.2938 & 0.9046 & +30.1\% \\
-Baker NASH/obesity & 64 & 55 & 1.3292 & 0.9337 & +29.8\% \\
-Lozupone HIV & 55 & 62 & 1.3591 & 0.9587 & +29.5\% \\
-\midrule
-MBQC integrated OTUs & 18270 & 235 & 0.2337 & 0.2996 & -28.2\% \\
-MehtaRS 2018 & 928 & 183 & 0.1786 & 0.2225 & -24.6\% \\
-CosteaPI 2017 & 279 & 179 & 0.1974 & 0.2241 & -13.5\% \\
-Diabimmune Karelia & 1584 & 55 & 1.1932 & 1.2794 & -7.2\% \\
-\bottomrule
-\end{tabular}
-\end{table}

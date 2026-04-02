@@ -1,10 +1,14 @@
-\documentclass[useAMS,usenatbib,referee]{biom}
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[numbers]{natbib}
 \usepackage{graphicx}
 \usepackage{amsmath,amssymb}
 \usepackage{url}
 \usepackage{bm}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{longtable}
+\usepackage[table]{xcolor}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{textcomp}
@@ -13,17 +17,23 @@
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, decorations.pathreplacing}
 
-\title[When Do PLN Models Beat Penalized Poisson Models?]{Understanding When Poisson Log-Normal Models Outperform Penalized Poisson Regression for Microbiome Count Data}
-
-\author{Daniel Agyapong$^{1,*}$\email{da2343@nau.edu}, Julien Chiquet$^{2}$, Jane Marks$^{3}$, and Toby Dylan Hocking$^{4}$\\
-$^{1}$School of Informatics, Computing, and Cyber Systems, Northern Arizona University, Flagstaff, Arizona, U.S.A.\\
-$^{2}$UMR MIA Paris-Saclay, Universit\'{e} Paris-Saclay, AgroParisTech, INRAE, Palaiseau, France\\
-$^{3}$Department of Biological Sciences, Northern Arizona University, Flagstaff, Arizona, U.S.A.\\
-$^{4}$D\'{e}partement d'informatique, Universit\'{e} de Sherbrooke, Sherbrooke, Qu\'{e}bec, Canada}
+\newcommand{\papertitle}{Understanding When Poisson Log-Normal Models Outperform Penalized Poisson Regression for Microbiome Count Data}
 
 \begin{document}
-\label{firstpage}
 
+\begin{center}
+{\LARGE\bfseries \papertitle\par}
+\vspace{1em}
+{\large Daniel Agyapong$^{1}$, Julien Chiquet$^{2}$, Jane Marks$^{3}$, Toby Dylan Hocking$^{4}$\par}
+\vspace{0.5em}
+{\small $^{1}$School of Informatics, Computing, and Cyber Systems, Northern Arizona University, Flagstaff, Arizona, U.S.A.\par}
+{\small $^{2}$UMR MIA Paris-Saclay, Universit\'{e} Paris-Saclay, AgroParisTech, INRAE, Palaiseau, France\par}
+{\small $^{3}$Department of Biological Sciences, Northern Arizona University, Flagstaff, Arizona, U.S.A.\par}
+{\small $^{4}$D\'{e}partement d'informatique, Universit\'{e} de Sherbrooke, Sherbrooke, Qu\'{e}bec, Canada\par}
+\vspace{0.4em}
+{\small Corresponding author: \texttt{da2343@nau.edu}\par}
+\end{center}
+\vspace{0.8em}
 \begin{abstract}
 Poisson log-normal (PLN) models are widely used for microbiome count data, but it remains unclear when their latent dependence structure improves on simpler penalized Poisson regression.
 We address this question with a two-part benchmark.
@@ -35,11 +45,7 @@ PLNNetwork performs best on broad undirected interaction benchmarks, whereas \te
 These results provide practical guidance for choosing between latent count models and penalized Poisson regression in microbiome prediction and interaction recovery.
 \end{abstract}
 
-\begin{keywords}
-Benchmarking; microbiome; network inference; penalized regression; Poisson log-normal.
-\end{keywords}
-
-\maketitle
+\noindent\textbf{Keywords:} Benchmarking; microbiome; network inference; penalized regression; Poisson log-normal.
 
 \section{Introduction}
 Microbial communities profiled by Next-Generation Sequencing produce count data with distinctive statistical properties.
@@ -481,11 +487,12 @@ Fourth, lightweight diagnostics that estimate recoverable latent dependence (for
 Finally, the computational experiments were conducted on Northern Arizona University’s Monsoon supercomputer~\cite{Buechler2025MonsoonIntro}; profiling PLN under multi-threaded execution and at larger sample sizes would give a more complete picture of its practical scalability.
 
 \section*{Supplementary Material}
-Web Tables~1--3 and Web Figures~1--2 referenced in Sections~3 and~4 are available in the Supplementary Material PDF accompanying this submission.
-The full 28-dataset count-prediction results are also distributed as \texttt{out/count\_prediction\_results\_full\_28.csv}.
+This arXiv version includes the supplementary material referenced in Sections~3 and~4.
+The full 28-dataset count-prediction results are also distributed as \path{out/count_prediction_results_full_28.csv}.
 
-\backmatter
-\bibliographystyle{biom}
+\bibliographystyle{plainnat}
 \bibliography{references}
-\label{lastpage}
+\clearpage
+\appendix
+\input{supplement_content}
 \end{document}

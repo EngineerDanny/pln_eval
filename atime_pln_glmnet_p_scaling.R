@@ -242,7 +242,7 @@ if (nrow(meas_dt) > 0) {
     scale_fill_manual(values = c("GLMNet (Poisson)" = "#D55E00", "PLN" = "#1f78b4")) +
     theme_bw() +
     labs(
-      x = "p",
+      x = "D",
       y = "Median fit cost\nacross 3 runs\n(log scale)",
       color = "Method",
       fill = "Method"
