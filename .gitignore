@@ -32,4 +32,5 @@ worker_setup.R
 *.zip
 *.tar.gz
 *.tar
-paper/JMLR_SUBMISSION_CHECKLIST.md
+paper/jmlr/JMLR_SUBMISSION_CHECKLIST.md
+paper/jmlr/TEX_RULES.md

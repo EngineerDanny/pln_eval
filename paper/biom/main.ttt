@@ -1,0 +1,55 @@
+\begin{table}[htbp]
+\caption{Summary of prior benchmarks of PLN and Poisson algorithms.}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{4.1cm}}
+\toprule
+Study (year) & Data / setting & Algorithms tested & Evaluation metrics \\
+\midrule
+Kenney et al. (2021)~\cite{Kenney2021PoissonPCA} & Simulations; microbiome example & Poisson PCA, PLN & Subspace recovery (principal angles); robustness to noise and exposure; runtime \\
+\midrule
+Chiquet et al. (2021)~\cite{Chiquet2021} & Multiple ecology/microbiome case studies & PLN, PLNPCA, PLNNetwork, PLNMixture & BIC/ICL for model order selection; illustrative fits across tasks; no held-out evaluation \\
+\midrule
+Xiao et al. (2022)~\cite{Xiao2022PLNet} & Synthetic count networks; real scRNA-seq data & PLNet, VPLN, latentcor, glasso & AUPR/AUC for edge recovery; runtime \\
+\midrule
+Virta \& Artemiou (2023)~\cite{Virta2023PoissonPCA} & Simulations; real count matrices & Poisson PCA, vectorization PCA, matrix-normal methods & Subspace estimation error (principal angles); latent-rank selection accuracy; runtime \\
+\midrule
+Qian et al. (2024)~\cite{Qian2024} & Synthetic microbial communities (5 sizes, 4 topologies) & PLN, MIC, Pearson, Ma et al. & 3-class accuracy for interaction type recovery; topology and size effects \\
+\midrule
+Batardi\`ere et al. (2025)~\cite{Batardiere2025ZIPLN} & High-zero simulations; cow microbiome & ZIPLN, PLN & In-sample log-likelihood (ELBO/BIC/AIC); latent dispersion; group discrimination \\
+\midrule
+Chaussard et al. (2025)~\cite{Chaussard2025PLNTree} & Synthetic datasets; human gut microbiome (T2D) & PLN-Tree, mean-field PLN, PLN & ELBO/log-likelihood; Shannon, Simpson, Bray-Curtis diversity; downstream classification accuracy \\
+\midrule
+This work (2026) & 28 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Prediction: held-out Poisson deviance under 3-fold LOTO-CV; network inference: F1 against experimental ground truth; runtime; memory \\
+\bottomrule
+\end{tabular}
+\label{tab:related_work}
+\end{table}
+\efloatseparator
+ 
+\begin{table}[htbp]
+\caption{Strongest count-prediction contrasts in the retained benchmark.
+Positive $\Delta$ indicates lower held-out Poisson deviance for PLN relative to \texttt{GLMNet(Poisson)}.
+Negative $\Delta$ indicates the opposite.}
+\label{tab:count-prediction-summary}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{0.94}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.24\textwidth}rrrr>{\raggedleft\arraybackslash}p{0.08\textwidth}}
+\toprule
+Dataset & $N$ & $D$ & GLMNet & PLN & $\Delta$ \\
+\midrule
+HMP 2012 & 91 & 222 & 0.3365 & 0.2075 & +38.3\% \\
+Ross obesity & 63 & 123 & 1.2938 & 0.9046 & +30.1\% \\
+Baker NASH/obesity & 64 & 55 & 1.3292 & 0.9337 & +29.8\% \\
+Lozupone HIV & 55 & 62 & 1.3591 & 0.9587 & +29.5\% \\
+\midrule
+MBQC integrated OTUs & 18270 & 235 & 0.2337 & 0.2996 & -28.2\% \\
+MehtaRS 2018 & 928 & 183 & 0.1786 & 0.2225 & -24.6\% \\
+CosteaPI 2017 & 279 & 179 & 0.1974 & 0.2241 & -13.5\% \\
+Diabimmune Karelia & 1584 & 55 & 1.1932 & 1.2794 & -7.2\% \\
+\bottomrule
+\end{tabular}
+\end{table}
