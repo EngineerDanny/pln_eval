@@ -337,11 +337,11 @@ We report median wall time and peak memory across those repeated measurements.
 \subsection{Count-prediction results}
 
 The central empirical result is that relative predictive performance varies systematically across datasets rather than favoring a single method.
-Figure~\ref{fig:nd_mac_scatter} shows that the sample-to-taxon ratio $N/D$ is the primary determinant of the dataset-level winner, yielding an AUC of 0.83 on its own.
+Figure~\ref{fig:nd_mac_scatter} shows that the sample-to-taxon ratio $N/D$ is the primary determinant of the dataset-level winner, yielding an AUC of 0.938 on its own.
 PLN tends to win when $N/D$ is small and the average dependence among taxa is strong.
 \texttt{GLMNet(Poisson)} tends to win when $N/D$ is large and inter-taxon dependence is weaker.
 
-MAC is the strongest secondary predictor: adding it to $N/D$ increases AUC from 0.83 to 0.84, and it provides a visually intuitive summary of inter-taxon dependence strength.
+MAC is the strongest secondary predictor: adding it to $N/D$ increases AUC from 0.938 to 0.948, and it provides a visually intuitive summary of inter-taxon dependence strength.
 Overdispersion is an additional predictor that further distinguishes settings where PLN's latent Gaussian layer is most beneficial.
 This aligns with the structure of the PLN model.
 Its latent Gaussian layer is most useful when counts depart substantially from the Poisson assumption and when joint dependence among taxa carries predictive signal.
@@ -449,6 +449,7 @@ Its F1 exceeds that of \texttt{GLMNet(Poisson)} on OMM12 ($0.86$ versus $0.29$),
 These datasets reward recovery of a global undirected interaction structure, which matches the inductive bias of a sparse latent precision matrix.
 
 The OMM12 example in Figure~\ref{fig:network_case_omm12} illustrates this contrast.
+OMM12 is a defined synthetic gut community comprising twelve bacterial taxa: \textit{Enterococcus faecalis} (KB1), \textit{Bifidobacterium animalis} (YL2), \textit{Acutalibacter muris} (KB18), \textit{Muribaculum intestinale} (YL27), \textit{Flavonifractor plautii} (YL31), \textit{Enterocloster clostridioformis} (YL32), \textit{Akkermansia muciniphila} (YL44), \textit{Turicimonas muris} (YL45), \textit{Clostridium innocuum} (I46), \textit{Bacteroides caecimuris} (I48), \textit{Limosilactobacillus reuteri} (I49), and \textit{Blautia coccoides} (YL58).
 The experimental graph is relatively dense and dominated by negative interactions.
 PLNNetwork recovers much of that structure, whereas \texttt{GLMNet(Poisson)} returns a substantially sparser graph with a different balance of edge signs.
 
@@ -456,6 +457,7 @@ The local and directional datasets tell a more nuanced story.
 On butyrate assembly 2021, PLNNetwork retains a modest advantage ($0.36$ versus $0.27$).
 On host fitness 2018, however, the ranking reverses and \texttt{GLMNet(Poisson)} achieves the best overall recovery ($0.95$ versus $0.80$).
 This contrast is shown in Figure~S1 of the Supplementary Material.
+The five taxa are \textit{Lactobacillus plantarum} (LP), \textit{Lactobacillus brevis} (LB), \textit{Acetobacter pasteurianus} (AP), \textit{Acetobacter tropicalis} (AT), and \textit{Acetobacter orientalis} (AO).
 PLNNetwork recovers part of the experimentally supported structure but misses edges involving AO and introduces a positive LP--LB edge that is not present in the truth.
 By contrast, \texttt{GLMNet(Poisson)} closely matches the local negative interaction pattern and misses only one true edge.
 In this setting, the ground truth is driven by targeted pairwise effects rather than by a broad undirected community network, and nodewise Poisson regressions appear better aligned with that local signal.
@@ -463,9 +465,10 @@ In this setting, the ground truth is driven by targeted pairwise effects rather 
 \begin{figure}[!t]
   \centering
   \includegraphics[width=0.94\textwidth]{figure5_omm12_network_comparison}
-  \caption{Ground-truth and inferred networks for the OMM12 dataset.
+  \caption{Ground-truth and inferred networks for the OMM12 defined community (12 taxa).
   Each panel shows the experimental ground truth (left), the PLNNetwork prediction
-  (centre), and the GLMNet(Poisson) prediction (right).
+  (centre), and the \texttt{GLMNet(Poisson)} prediction (right).
+  Node labels are strain codes: KB1 (\textit{E.\ faecalis}), YL2 (\textit{B.\ animalis}), KB18 (\textit{A.\ muris}), YL27 (\textit{M.\ intestinale}), YL31 (\textit{F.\ plautii}), YL32 (\textit{E.\ clostridioformis}), YL44 (\textit{A.\ muciniphila}), YL45 (\textit{T.\ muris}), I46 (\textit{C.\ innocuum}), I48 (\textit{B.\ caecimuris}), I49 (\textit{L.\ reuteri}), YL58 (\textit{B.\ coccoides}).
   Edge colour indicates interaction sign (blue: positive, orange: negative).}
   \label{fig:network_case_omm12}
 \end{figure}
@@ -501,7 +504,7 @@ The count-prediction results have a clear statistical interpretation.
 PLN must estimate a latent covariance structure with $O(D^2)$ degrees of freedom, so its advantage depends on whether the data contain enough information to support that extra layer.
 When $N/D$ is small, inter-taxon dependence is strong, and counts are overdispersed, the latent Gaussian component captures signal that independent Poisson regressions miss.
 When $N/D$ is large or inter-taxon dependence is weak, the extra flexibility of PLN adds variance and computational cost without improving prediction.
-This interpretation is consistent with the observed AUC of 0.84 obtained from $N/D$ and MAC together, with overdispersion providing further discriminative power.
+This interpretation is consistent with the observed AUC of 0.948 obtained from $N/D$ and MAC together, with overdispersion providing further discriminative power.
 
 The network-inference results point to a similar match between model structure and evaluation target.
 PLNNetwork estimates a sparse undirected precision matrix and therefore aligns naturally with broad community-level interaction structure.
@@ -541,9 +544,6 @@ Third, the comparison is restricted to algorithms in the Poisson family; extendi
 Fourth, lightweight diagnostics that estimate recoverable latent dependence (for example, through stability of conditional correlations across folds) could help practitioners decide when PLN is likely to provide benefits before incurring its full computational cost.
 Finally, the computational experiments were conducted on Northern Arizona University's Monsoon supercomputer~\cite{Buechler2025MonsoonIntro}; profiling PLN under multi-threaded execution and at larger sample sizes would give a more complete picture of its practical scalability.
 
-\bibliographystyle{plainnat}
-\bibliography{references}
-
 \section*{Declarations}
 
 \subsection*{Ethics approval and consent to participate}
@@ -572,6 +572,9 @@ Computational work was performed on Northern Arizona University's Monsoon high-p
 
 \subsection*{Authors' information}
 Not applicable.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
 
 \clearpage
 \appendix
