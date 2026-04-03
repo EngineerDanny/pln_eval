@@ -1,8 +1,10 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
-\usepackage[numbers]{natbib}
+\usepackage[authoryear,round]{natbib}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 \usepackage{graphicx}
-\usepackage{amsmath,amssymb}
+\usepackage{amsmath,amssymb,amsthm}
+\newtheorem{proposition}{Proposition}[section]
 \usepackage{url}
 \usepackage{bm}
 \usepackage{booktabs}
@@ -203,7 +205,7 @@ This diversity is important for interpretation.
 The paper's goal is not to identify a single best-performing method on one cohort, but to determine which properties of the count matrix predict when PLN is worth its added complexity.
 The broad spread of $N$, $D$, sparsity, and biological settings is therefore a deliberate part of the benchmark design rather than background variation to be averaged away.
 
-Full dataset metadata, including the representative inventory previously shown in the main manuscript, are provided in Table~S1 of the Supplementary Material.
+Full dataset metadata, including the representative inventory previously shown in the main manuscript, are provided in Table~S2 of the Supplementary Material.
 Full benchmark identifiers and provenance are preserved in the repository metadata for exact reproducibility.
 
 
@@ -227,7 +229,7 @@ These two datasets are informative because the underlying signal is closer to ``
 
 Across these datasets, sample size ranged from $N=109$ to $N=1449$, feature dimension ranged from $D=5$ to $D=96$, and data sparsity ranged from $21.25\%$ to $66.19\%$.
 Processed abundance matrices and truth edge sets were harmonized into a common benchmark format so that PLNNetwork and \texttt{GLMNet(Poisson)} could be evaluated under the same scoring rules despite their different biological origins.
-Dataset-level metadata are provided in Table~S2 of the Supplementary Material.
+Dataset-level metadata are provided in Table~S3 of the Supplementary Material.
 
 
 
@@ -314,6 +316,7 @@ We used Poisson deviance rather than RMSE, correlation, or absolute-error criter
 Poisson deviance is a proper scoring rule for count data: it is minimised in expectation by the true conditional mean $\mathbb{E}[Y_i \mid x_i]$, so a model that achieves lower held-out deviance genuinely predicts better rather than simply fitting the training data more closely~\citep{Gneiting2007ProperScoring}.
 This property, which in-sample criteria such as ELBO and BIC do not share, is what makes held-out Poisson deviance the principled choice for comparing count models out of sample.
 Gaussian-style losses such as RMSE are less appropriate here because they ignore the mean-variance relationship that is central to the comparison.
+Formal definitions, a proof of properness, and a discussion of the exchangeability assumption underlying the estimator are given in Appendix~S1.
 For \texttt{GLMNet(Poisson)}, the regularization parameter $\lambda$ was selected by inner-fold Poisson deviance using \texttt{cv.glmnet}.
 For PLN, the shrinkage parameter $\alpha$ was selected by 3-fold inner cross-validation on Poisson deviance.
 The featureless baseline serves as a lower bound: any algorithm with higher deviance than the featureless baseline provides no useful predictive signal.
@@ -403,7 +406,7 @@ The orange triangle marks American Gut~1, a GLMNet win at low $N/D$ and high MAC
 \label{fig:nd_mac_scatter}
 \end{figure}
 
-Table~S3 reports the complete retained 20-dataset count-prediction benchmark and highlights the strongest dataset-level contrasts in both directions.
+Table~S4 reports the complete retained 20-dataset count-prediction benchmark and highlights the strongest dataset-level contrasts in both directions.
 The table includes standard errors, paired $p$-values from a Wilcoxon signed-rank test, and Benjamini--Hochberg adjusted $q$-values to account for multiple testing across the 20 datasets.
 
 
@@ -459,14 +462,14 @@ Its mean bootstrap F1 exceeds that of \texttt{GLMNet(Poisson)} on OMM12 ($0.81 \
 These datasets reward recovery of a global undirected interaction structure, which matches the inductive bias of a sparse latent precision matrix.
 
 The OMM12 example in Figure~\ref{fig:network_case_omm12} illustrates this contrast.
-OMM12 is a defined synthetic gut community comprising twelve bacterial taxa: \textit{Enterococcus faecalis} (KB1), \textit{Bifidobacterium animalis} (YL2), \textit{Acutalibacter muris} (KB18), \textit{Muribaculum intestinale} (YL27), \textit{Flavonifractor plautii} (YL31), \textit{Enterocloster clostridioformis} (YL32), \textit{Akkermansia muciniphila} (YL44), \textit{Turicimonas muris} (YL45), \textit{Clostridium innocuum} (I46), \textit{Bacteroides caecimuris} (I48), \textit{Limosilactobacillus reuteri} (I49), and \textit{Blautia coccoides} (YL58).
+OMM12 is a defined synthetic gut community comprising twelve bacterial taxa, labeled KB1, YL2, KB18, YL27, YL31, YL32, YL44, YL45, I46, I48, I49, and YL58 in Figure~\ref{fig:network_case_omm12}.
 The experimental graph is relatively dense and dominated by negative interactions.
 PLNNetwork recovers much of that structure, whereas \texttt{GLMNet(Poisson)} returns a substantially sparser graph with a different balance of edge signs.
 
 The local and directional datasets tell a more nuanced story.
 On butyrate assembly 2021, PLNNetwork retains a modest advantage ($0.36 \pm 0.004$ versus $0.26 \pm 0.008$).
 On host fitness 2018, however, the ranking reverses and \texttt{GLMNet(Poisson)} achieves the best overall recovery ($0.95 \pm 0.00$ versus $0.80 \pm 0.03$).
-This contrast is shown in Figure~S1 of the Supplementary Material.
+This contrast is shown in Figure~S2 of the Supplementary Material.
 The five taxa are \textit{Lactobacillus plantarum} (LP), \textit{Lactobacillus brevis} (LB), \textit{Acetobacter pasteurianus} (AP), \textit{Acetobacter tropicalis} (AT), and \textit{Acetobacter orientalis} (AO).
 PLNNetwork recovers part of the experimentally supported structure but misses edges involving AO and introduces a positive LP--LB edge that is not present in the truth.
 By contrast, \texttt{GLMNet(Poisson)} closely matches the local negative interaction pattern and misses only one true edge.
@@ -582,7 +585,9 @@ This work was supported by the National Science Foundation grant \#2125088 (Rule
 
 \subsection*{Authors' contributions}
 DA conceived the study, implemented the benchmark pipeline, performed the analyses, and drafted the manuscript.
+JC advised on methodology, algorithm design, and manuscript revisions.
 TDH advised on methodology, algorithm design, and manuscript revisions.
+JM contributed to writing, review, and editing of the manuscript.
 All authors read and approved the final manuscript.
 
 \subsection*{Acknowledgments}
