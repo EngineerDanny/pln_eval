@@ -1,100 +1,226 @@
 \section*{Supplementary Material}
-\section*{Table S1. Count-prediction dataset inventory}
+
+% ============================================================
+\section*{Appendix S1. LOTO-CV: Formal Definition and Theoretical Guarantees}
+
+\subsection*{S1.1\quad Notation}
+
+Let $Y \in \mathbb{Z}_{\geq 0}^{N \times D}$ denote the observed count matrix with $N$ samples and $D$ taxa.
+Write $Y_{\cdot j} \in \mathbb{Z}_{\geq 0}^{N}$ for the $j$-th column (the count vector of taxon $j$ across all samples) and $Y_{\cdot,-j} \in \mathbb{Z}_{\geq 0}^{N \times (D-1)}$ for the matrix of all remaining taxa.
+Let $\mathcal{I}_1,\ldots,\mathcal{I}_K$ denote a partition of the samples into $K$ folds.
+Let $\mathcal{A}$ denote a count regression algorithm.
+For each target taxon $j$ and sample fold $k$, the algorithm is trained on the samples outside $\mathcal{I}_k$ using taxon $j$ as the response and the remaining taxa as predictors.
+Let $\hat{\mu}^{(-k,j)}_{ij} \in \mathbb{R}_{>0}$ denote the predicted mean for held-out sample $i \in \mathcal{I}_k$ and target taxon $j$.
+The mean Poisson deviance between observed counts $y \in \mathbb{Z}_{\geq 0}^{m}$ and predicted means $\hat{\mu} \in \mathbb{R}_{>0}^{m}$ is
+\[
+  \mathcal{D}(y,\, \hat{\mu})
+  \;=\;
+  \frac{2}{m} \sum_{i=1}^{m} \left( y_i \log \frac{y_i}{\hat{\mu}_i} - (y_i - \hat{\mu}_i) \right),
+\]
+with the convention $0 \log 0 = 0$.
+
+\subsection*{S1.2\quad The LOTO-CV Estimator}
+
+The estimator reported in the paper is
+\[
+  \widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}(\mathcal{A})
+  \;=\;
+  \frac{1}{DK} \sum_{j=1}^{D}\sum_{k=1}^{K}
+  \mathcal{D}\!\left(Y_{\mathcal{I}_k j},\; \hat{\mu}^{(-k,j)}_{\mathcal{A}}\right),
+\]
+where $Y_{\mathcal{I}_k j}$ is the vector of observed counts for target taxon $j$ on the held-out samples in fold $k$.
+Each taxon serves once as the prediction target, and each sample serves once as a held-out observation within each taxon-specific regression problem.
+
+\subsection*{S1.3\quad Poisson Deviance as a Proper Scoring Rule}
+
+Proper scoring rules are loss functions minimised in expectation by the true conditional distribution \citep{Gneiting2007ProperScoring}.
+We establish properness of the Poisson deviance via the Bregman divergence representation.
+Let $\phi: \mathbb{R}_{\geq 0} \to \mathbb{R}$ be the strictly convex function $\phi(\mu) = \mu \log \mu - \mu$, extended continuously at zero so that $\phi(0)=0$.
+The associated Bregman divergence is
+\[
+  B_{\phi}(y,\,\mu)
+  \;=\;
+  \phi(y) - \phi(\mu) - \phi'(\mu)(y - \mu)
+  \;=\;
+  y \log\frac{y}{\mu} - (y - \mu),
+\]
+so that for vectors of length $m$,
+\[
+  \mathcal{D}(y,\mu) = \frac{2}{m} \sum_i B_\phi(y_i, \mu_i).
+\]
+
+\begin{proposition}[Properness of Poisson deviance]
+Let $Y$ be a non-negative integer-valued random variable with finite mean $\mu^* = \mathbb{E}[Y]$.
+Then for all $\mu > 0$,
+\[
+  \mathbb{E}\!\left[B_\phi(Y,\,\mu^*)\right]
+  \;\leq\;
+  \mathbb{E}\!\left[B_\phi(Y,\,\mu)\right],
+\]
+with equality if and only if $\mu = \mu^*$.
+\end{proposition}
+
+\begin{proof}
+By linearity of expectation and the definition of Bregman divergence,
+\[
+  \mathbb{E}\!\left[B_\phi(Y,\,\mu)\right]
+  \;=\;
+  \mathbb{E}[\phi(Y)] - \phi(\mu) - \phi'(\mu)\bigl(\mu^* - \mu\bigr).
+\]
+Similarly,
+\[
+  \mathbb{E}\!\left[B_\phi(Y,\,\mu^*)\right]
+  \;=\;
+  \mathbb{E}[\phi(Y)] - \phi(\mu^*).
+\]
+Subtracting and using the definition of $B_\phi$,
+\[
+  \mathbb{E}\!\left[B_\phi(Y,\,\mu)\right]
+  - \mathbb{E}\!\left[B_\phi(Y,\,\mu^*)\right]
+  \;=\;
+  \phi(\mu^*) - \phi(\mu) - \phi'(\mu)\bigl(\mu^* - \mu\bigr)
+  \;=\;
+  B_\phi(\mu^*,\,\mu)
+  \;\geq\; 0,
+\]
+where the inequality holds because $\phi$ is convex, so $B_\phi \geq 0$ everywhere, and equality $B_\phi(\mu^*, \mu) = 0$ holds if and only if $\mu = \mu^*$ by strict convexity of $\phi$.
+\end{proof}
+
+\noindent The Proposition states that no predicted mean $\mu \neq \mu^*$ can achieve lower expected deviance than the true conditional mean.
+A model with lower held-out Poisson deviance therefore predicts better in a statistically meaningful sense, not merely in a sample-specific sense.
+This is the guarantee that in-sample criteria such as ELBO and BIC do not provide.
+
+\subsection*{S1.4\quad Population Target and the Exchangeability Assumption}
+
+The population quantity that $\widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}$ estimates is
+\[
+  R(\mathcal{A})
+  \;=\;
+  \mathbb{E}\!\left[\,\mathcal{D}\!\left(Y_{\mathcal{I}_k j},\; \hat{\mu}^{(-k,j)}_{\mathcal{A}}\right)\right],
+\]
+where the expectation is over new realisations of the count matrix together with the random choice of target taxon $j$ and sample fold $k$.
+Under \emph{taxon exchangeability} --- the assumption that the $D$ columns of $Y$ are exchangeable draws from the same marginal distribution --- $\widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}$ is an approximately unbiased estimator of $R(\mathcal{A})$, and $\mathcal{A}$ is selected by minimising this estimate.
+
+In real microbiome data, taxa are not exchangeable: they span different phyla, have different mean abundances, and exhibit different sparsity profiles.
+Taxon exchangeability is therefore an idealisation.
+However, any bias this introduces applies equally to all algorithms being compared, so it does not affect the validity of the relative comparison between PLN and \texttt{GLMNet(Poisson)}.
+
+\subsection*{S1.5\quad Outer $K$-fold Approximation}
+
+For computational tractability, the paper uses $K = 3$ outer folds over samples.
+For each target taxon $j$, the algorithm is trained on samples outside $\mathcal{I}_k$ and evaluated on held-out samples in $\mathcal{I}_k$.
+This produces one held-out score for each target-taxon and sample-fold pair.
+The reported benchmark score is the average of these $D \times K$ scores.
+
+\clearpage
+% ============================================================
+\section*{Table S2. Count-prediction dataset inventory}
 Datasets are sorted by $N/D$.
-$^\dagger$American Gut~1 is an outlier in the count-prediction benchmark (see Table~S3).
-\small
+$^\dagger$American Gut~1 is an outlier in the count-prediction benchmark (see Table~S4).
+\footnotesize
 \begin{center}
-\begin{tabular}{>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.08\textwidth}rrr}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.19\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.20\textwidth}rrr}
 \toprule
-Dataset & Human system & Level & $N$ & $D$ & Data sparsity (\%) \\
+Dataset & Reference & Human system & $N$ & $D$ & Sparsity (\%) \\
 \midrule
-Castro-Nallar 2015 & oral & Genus & 32 & 107 & 60.28 \\
-ChngKR 2016 & skin & Genus & 78 & 211 & 80.66 \\
-HMP 2012 & nasal & Species & 91 & 222 & 92.72 \\
-Zeller CRC & stool CRC & Genus & 129 & 257 & 58.29 \\
-Ross obesity & gut obesity & Genus & 63 & 123 & 67.05 \\
-Lozupone HIV & gut HIV & Family & 55 & 62 & 65.75 \\
-Baker NASH/obesity & gut NASH/obesity & Family & 64 & 55 & 56.85 \\
-Zhao CRC & stool CRC & Genus & 102 & 78 & 77.48 \\
-CosteaPI 2017 & stool enterotypes & Genus & 279 & 179 & 71.73 \\
-American Gut 2 & gut citizen science & OTU & 294 & 138 & 34.48 \\
-Chan NASH & gut NASH & Family & 54 & 24 & 63.12 \\
-American Gut 1$^\dagger$ & gut citizen science & OTU & 289 & 127 & 30.64 \\
-Alkanani T1D & gut T1D & Family & 112 & 27 & 66.34 \\
-Schubert CDI & stool CDI & Family & 347 & 79 & 79.35 \\
-MehtaRS 2018 & gut longitudinal & Genus & 928 & 183 & 75.72 \\
-ShaoY 2019 & infant gut & Genus & 1644 & 244 & 93.01 \\
-Zeevi obesity & gut glycemic response & Family & 820 & 74 & 74.99 \\
-HMP16S v13 & multi-site 16S & Family & 2909 & 159 & 87.20 \\
-Diabimmune Karelia & infant gut & Family & 1584 & 55 & 53.36 \\
-MBQC integrated OTUs & stool benchmark & Family & 18270 & 235 & 89.46 \\
+Castro-Nallar 2015 & \citealt{CastroNallar2015} & oral & 32 & 107 & 60.28 \\
+ChngKR 2016 & \citealt{Chng2016} & skin & 78 & 211 & 80.66 \\
+HMP 2012 & \citealt{HMP2012} & nasal & 91 & 222 & 92.72 \\
+Zeller CRC & \citealt{Zeller2014} & stool CRC & 129 & 257 & 58.29 \\
+Ross obesity & \citealt{Ross2015} & gut obesity & 63 & 123 & 67.05 \\
+Lozupone HIV & \citealt{Lozupone2013} & gut HIV & 55 & 62 & 65.75 \\
+Baker NASH/obesity & \citealt{Zhu2013} & gut NASH/obesity & 64 & 55 & 56.85 \\
+Zhao CRC & \citealt{Wang2012} & stool CRC & 102 & 78 & 77.48 \\
+CosteaPI 2017 & \citealt{Costea2017} & stool enterotypes & 279 & 179 & 71.73 \\
+American Gut 2 & \citealt{McDonald2018} & gut citizen science & 294 & 138 & 34.48 \\
+Chan NASH & \citealt{Wong2013} & gut NASH & 54 & 24 & 63.12 \\
+American Gut 1$^\dagger$ & \citealt{McDonald2018} & gut citizen science & 289 & 127 & 30.64 \\
+Alkanani T1D & \citealt{Alkanani2015} & gut T1D & 112 & 27 & 66.34 \\
+Schubert CDI & \citealt{Schubert2014} & stool CDI & 347 & 79 & 79.35 \\
+MehtaRS 2018 & \citealt{Mehta2018} & gut longitudinal & 928 & 183 & 75.72 \\
+ShaoY 2019 & \citealt{Shao2019} & infant gut & 1644 & 244 & 93.01 \\
+Zeevi obesity & \citealt{Zeevi2015} & gut glycemic response & 820 & 74 & 74.99 \\
+HMP16S v13 & \citealt{Huttenhower2012} & multi-site 16S & 2909 & 159 & 87.20 \\
+Diabimmune Karelia & \citealt{Vatanen2016} & infant gut & 1584 & 55 & 53.36 \\
+MBQC integrated OTUs & \citealt{MBQC2017} & stool benchmark & 18270 & 235 & 89.46 \\
 \bottomrule
 \end{tabular}
 \end{center}
 \normalsize
 
-\section*{Table S2. Network-inference dataset metadata}
-\small
+% ============================================================
+\section*{Table S3. Network-inference dataset metadata}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
 \begin{center}
-\begin{tabular}{>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}rrr}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.15\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.21\textwidth}rrr}
 \toprule
-Dataset & System & Truth type & $N$ & $D$ & Data sparsity (\%) \\
+Dataset & Reference & System & Truth type & $N$ & $D$ & Sparsity (\%) \\
 \midrule
-OMM12 & defined human gut bacterial community & experimental coculture and dropout interactions & 109 & 12 & 21.25 \\
-OMM12 keystone 2023 & defined human gut bacterial community & experimental dropout-derived abundance-ratio effects & 228 & 11 & 31.50 \\
-PairInteraX & human gut species panel & experimental pairwise co-culture interaction labels & 169 & 96 & 25.86 \\
-Butyrate assembly 2021 & defined human gut community & pair-vs-singleton abundance shifts & 537 & 26 & 66.19 \\
-Host fitness 2018 & \textit{Drosophila} gut community & pair-vs-singleton CFU shifts & 1449 & 5 & 54.56 \\
+OMM12 & \citealt{Weiss2022OMM12} & defined human gut bacterial community & experimental coculture and dropout interactions & 109 & 12 & 21.25 \\
+OMM12 keystone 2023 & \citealt{Weiss2023Keystone} & defined human gut bacterial community & experimental dropout-derived abundance-ratio effects & 228 & 11 & 31.50 \\
+PairInteraX & \citealt{Zhu2025PairInteraX} & human gut species panel & experimental pairwise co-culture interaction labels & 169 & 96 & 25.86 \\
+Butyrate assembly 2021 & \citealt{Clark2021Butyrate} & defined human gut community & pair-vs-singleton abundance shifts & 537 & 26 & 66.19 \\
+Host fitness 2018 & \citealt{Gould2018HostFitness} & \textit{Drosophila} gut community & pair-vs-singleton CFU shifts & 1449 & 5 & 54.56 \\
 \bottomrule
 \end{tabular}
 \end{center}
+\setlength{\tabcolsep}{6pt}
 \normalsize
 
-\section*{Table S3. 20-dataset count-prediction results}
+% ============================================================
+\section*{Table S4. 20-dataset count-prediction results}
 Datasets are sorted by $N/D$.
 Blue rows are the four strongest PLN-favorable contrasts; orange rows are the four strongest GLMNet-favorable contrasts.
 GLMNet and PLN entries report held-out Poisson deviance as mean $\pm$ SE.
+$p$-values are from a paired Wilcoxon signed-rank test on per-fold deviance differences; $q$-values are Benjamini--Hochberg adjusted.
 $^\dagger$American Gut~1 is an outlier: GLMNet wins despite low $N/D$ and relatively high MAC.
 \footnotesize
-\setlength{\tabcolsep}{3.5pt}
-\setlength{\LTleft}{-0.35in}
-\setlength{\LTright}{-0.35in}
-\begin{longtable}{p{0.24\textwidth}rrp{0.18\textwidth}p{0.18\textwidth}rrp{0.08\textwidth}}
+\setlength{\tabcolsep}{2.7pt}
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+\begin{longtable}{p{0.20\textwidth}rrp{0.155\textwidth}p{0.155\textwidth}rrrp{0.08\textwidth}}
 \toprule
-Dataset & $N/D$ & MAC & GLMNet & PLN & $\Delta$ & $p$-value & Winner \\
+Dataset & $N/D$ & MAC & GLMNet & PLN & $\Delta$ & $p$-value & $q$-value & Winner \\
 \midrule
 \endfirsthead
 \toprule
-Dataset & $N/D$ & MAC & GLMNet & PLN & $\Delta$ & $p$-value & Winner \\
+Dataset & $N/D$ & MAC & GLMNet & PLN & $\Delta$ & $p$-value & $q$-value & Winner \\
 \midrule
 \endhead
-Castro-Nallar 2015 & 0.30 & 0.167 & 0.4857 $\pm$ 0.0695 & 0.3538 $\pm$ 0.0248 & +27.2\% & 0.020 & PLN \\
-ChngKR 2016 & 0.37 & 0.092 & 0.2139 $\pm$ 0.0152 & 0.1793 $\pm$ 0.0104 & +16.2\% & 5.3e-4 & PLN \\
-\rowcolor{blue!8} HMP 2012 & 0.41 & 0.118 & 0.3365 $\pm$ 0.0433 & 0.2075 $\pm$ 0.0214 & +38.3\% & 2.9e-4 & PLN \\
-Zeller CRC & 0.50 & 0.090 & 1.0870 $\pm$ 0.0559 & 0.9439 $\pm$ 0.0448 & +13.2\% & 1.4e-4 & PLN \\
-\rowcolor{blue!8} Ross obesity & 0.51 & 0.130 & 1.2938 $\pm$ 0.0885 & 0.9046 $\pm$ 0.0422 & +30.1\% & 1.8e-6 & PLN \\
-\rowcolor{blue!8} Lozupone HIV & 0.89 & 0.163 & 1.3591 $\pm$ 0.1128 & 0.9587 $\pm$ 0.0824 & +29.5\% & 2.0e-4 & PLN \\
-\rowcolor{blue!8} Baker NASH/obesity & 1.16 & 0.156 & 1.3292 $\pm$ 0.1412 & 0.9337 $\pm$ 0.0571 & +29.8\% & 0.001 & PLN \\
-Zhao CRC & 1.31 & 0.091 & 0.7487 $\pm$ 0.0498 & 0.6205 $\pm$ 0.0295 & +17.1\% & 0.002 & PLN \\
-\rowcolor{orange!10} CosteaPI 2017 & 1.56 & 0.055 & 0.1974 $\pm$ 0.0144 & 0.2241 $\pm$ 0.0152 & $-$13.5\% & 3.9e-13 & GLMNet \\
-American Gut 2 & 2.13 & 0.237 & 1.3108 $\pm$ 0.0321 & 1.1553 $\pm$ 0.0284 & +11.9\% & 3.5e-31 & PLN \\
-Chan NASH & 2.25 & 0.112 & 1.5787 $\pm$ 0.1904 & 1.2359 $\pm$ 0.1291 & +21.7\% & 0.035 & PLN \\
-American Gut 1$^\dagger$ & 2.28 & 0.182 & 1.2049 $\pm$ 0.0369 & 1.2761 $\pm$ 0.0330 & $-$5.9\% & 9.4e-13 & GLMNet \\
-Alkanani T1D & 4.15 & 0.231 & 1.3291 $\pm$ 0.1450 & 1.0756 $\pm$ 0.1167 & +19.1\% & 0.004 & PLN \\
-Schubert CDI & 4.39 & 0.074 & 0.7711 $\pm$ 0.0476 & 0.6905 $\pm$ 0.0449 & +10.5\% & 1.5e-4 & PLN \\
-\rowcolor{orange!10} MehtaRS 2018 & 5.07 & 0.042 & 0.1786 $\pm$ 0.0113 & 0.2225 $\pm$ 0.0140 & $-$24.6\% & 1.6e-23 & GLMNet \\
-ShaoY 2019 & 6.74 & 0.033 & 0.1571 $\pm$ 0.0124 & 0.1647 $\pm$ 0.0136 & $-$4.8\% & 0.002 & GLMNet \\
-Zeevi obesity & 11.08 & 0.110 & 0.5570 $\pm$ 0.0334 & 0.5628 $\pm$ 0.0326 & $-$1.1\% & 0.424 & GLMNet \\
-HMP16S v13 & 18.30 & 0.058 & 0.3307 $\pm$ 0.0180 & 0.3347 $\pm$ 0.0191 & $-$1.2\% & 0.284 & GLMNet \\
-\rowcolor{orange!10} Diabimmune Karelia & 28.80 & 0.127 & 1.1932 $\pm$ 0.0543 & 1.2794 $\pm$ 0.0564 & $-$7.2\% & 5.6e-26 & GLMNet \\
-\rowcolor{orange!10} MBQC integrated OTUs & 77.74 & 0.041 & 0.2337 $\pm$ 0.0127 & 0.2996 $\pm$ 0.0165 & $-$28.2\% & 2.6e-34 & GLMNet \\
+Castro-Nallar 2015 & 0.30 & 0.167 & 0.4857 $\pm$ 0.0695 & 0.3538 $\pm$ 0.0248 & +27.2\% & 0.020 & 0.024 & PLN \\
+ChngKR 2016 & 0.37 & 0.092 & 0.2139 $\pm$ 0.0152 & 0.1793 $\pm$ 0.0104 & +16.2\% & 5.3e-4 & 8.8e-4 & PLN \\
+\rowcolor{blue!8} HMP 2012 & 0.41 & 0.118 & 0.3365 $\pm$ 0.0433 & 0.2075 $\pm$ 0.0214 & +38.3\% & 2.9e-4 & 5.3e-4 & PLN \\
+Zeller CRC & 0.50 & 0.090 & 1.0870 $\pm$ 0.0559 & 0.9439 $\pm$ 0.0448 & +13.2\% & 1.4e-4 & 3.4e-4 & PLN \\
+\rowcolor{blue!8} Ross obesity & 0.51 & 0.130 & 1.2938 $\pm$ 0.0885 & 0.9046 $\pm$ 0.0422 & +30.1\% & 1.8e-6 & 5.0e-6 & PLN \\
+\rowcolor{blue!8} Lozupone HIV & 0.89 & 0.163 & 1.3591 $\pm$ 0.1128 & 0.9587 $\pm$ 0.0824 & +29.5\% & 2.0e-4 & 4.1e-4 & PLN \\
+\rowcolor{blue!8} Baker NASH/obesity & 1.16 & 0.156 & 1.3292 $\pm$ 0.1412 & 0.9337 $\pm$ 0.0571 & +29.8\% & 0.001 & 0.002 & PLN \\
+Zhao CRC & 1.31 & 0.091 & 0.7487 $\pm$ 0.0498 & 0.6205 $\pm$ 0.0295 & +17.1\% & 0.002 & 0.002 & PLN \\
+\rowcolor{orange!10} CosteaPI 2017 & 1.56 & 0.055 & 0.1974 $\pm$ 0.0144 & 0.2241 $\pm$ 0.0152 & $-$13.5\% & 3.9e-13 & 1.6e-12 & GLMNet \\
+American Gut 2 & 2.13 & 0.237 & 1.3108 $\pm$ 0.0321 & 1.1553 $\pm$ 0.0284 & +11.9\% & 3.5e-31 & 3.5e-30 & PLN \\
+Chan NASH & 2.25 & 0.112 & 1.5787 $\pm$ 0.1904 & 1.2359 $\pm$ 0.1291 & +21.7\% & 0.035 & 0.038 & PLN \\
+American Gut 1$^\dagger$ & 2.28 & 0.182 & 1.2049 $\pm$ 0.0369 & 1.2761 $\pm$ 0.0330 & $-$5.9\% & 9.4e-13 & 3.1e-12 & GLMNet \\
+Alkanani T1D & 4.15 & 0.231 & 1.3291 $\pm$ 0.1450 & 1.0756 $\pm$ 0.1167 & +19.1\% & 0.004 & 0.005 & PLN \\
+Schubert CDI & 4.39 & 0.074 & 0.7711 $\pm$ 0.0476 & 0.6905 $\pm$ 0.0449 & +10.5\% & 1.5e-4 & 3.4e-4 & PLN \\
+\rowcolor{orange!10} MehtaRS 2018 & 5.07 & 0.042 & 0.1786 $\pm$ 0.0113 & 0.2225 $\pm$ 0.0140 & $-$24.6\% & 1.6e-23 & 8.0e-23 & GLMNet \\
+ShaoY 2019 & 6.74 & 0.033 & 0.1571 $\pm$ 0.0124 & 0.1647 $\pm$ 0.0136 & $-$4.8\% & 0.002 & 0.003 & GLMNet \\
+Zeevi obesity & 11.08 & 0.110 & 0.5570 $\pm$ 0.0334 & 0.5628 $\pm$ 0.0326 & $-$1.1\% & 0.424 & 0.424 & GLMNet \\
+HMP16S v13 & 18.30 & 0.058 & 0.3307 $\pm$ 0.0180 & 0.3347 $\pm$ 0.0191 & $-$1.2\% & 0.284 & 0.299 & GLMNet \\
+\rowcolor{orange!10} Diabimmune Karelia & 28.80 & 0.127 & 1.1932 $\pm$ 0.0543 & 1.2794 $\pm$ 0.0564 & $-$7.2\% & 5.6e-26 & 3.7e-25 & GLMNet \\
+\rowcolor{orange!10} MBQC integrated OTUs & 77.74 & 0.041 & 0.2337 $\pm$ 0.0127 & 0.2996 $\pm$ 0.0165 & $-$28.2\% & 2.6e-34 & 5.3e-33 & GLMNet \\
 \bottomrule
 \end{longtable}
 \setlength{\LTleft}{0pt}
 \setlength{\LTright}{0pt}
 \normalsize
 
-\section*{Figure S1. Host fitness 2018 network comparison}
+% ============================================================
+\section*{Figure S2. Host fitness 2018 network comparison}
 \begin{center}
 \includegraphics[width=\textwidth]{figureS1_host_fitness_network_comparison}
 \end{center}
+Ground-truth and inferred networks for the host fitness 2018 dataset~\citep{Gould2018HostFitness}, a five-species \textit{Drosophila} gut community.
+Each panel shows the experimental ground truth (left), the PLNNetwork prediction (centre), and the \texttt{GLMNet(Poisson)} prediction (right).
+Node labels are species abbreviations: LP (\textit{Lactobacillus plantarum}), LB (\textit{Lactobacillus brevis}), AP (\textit{Acetobacter pasteurianus}), AT (\textit{Acetobacter tropicalis}), AO (\textit{Acetobacter orientalis}).
+Edge colour indicates interaction sign (blue: positive, orange: negative).
+Ground-truth edges are derived from pair-vs-singleton colony-forming unit shifts~\citep{Gould2018HostFitness}.
