@@ -304,14 +304,16 @@ All penalized Poisson regressions were fit with \texttt{glmnet}~\citep{Friedman2
 
 \subsubsection{Count-prediction evaluation}
 
-For count prediction, we used leave-one-taxon-out cross-validation (LOTO-CV).
-In each outer fold, one taxon is held out as the prediction target and the remaining taxa serve as predictors; this is repeated for every taxon and the scores are averaged.
-The outer CV used 3 folds; the inner CV used 3 folds for hyperparameter selection.
-The primary metric is held-out Poisson deviance, defined as
+For count prediction, we used a leave-one-taxon-out prediction protocol combined with 3-fold cross-validation over samples.
+Each taxon is treated in turn as the prediction target, the remaining taxa serve as predictors, and predictive performance is evaluated on held-out samples.
+The resulting held-out scores are then averaged across target taxa and sample folds.
+The inner CV used 3 folds for hyperparameter selection.
+The primary metric is mean held-out Poisson deviance, defined as
 \[
-  \mathcal{D}(y, \hat\mu) = 2\sum_{i} \left( y_i \log\frac{y_i}{\hat\mu_i} - (y_i - \hat\mu_i) \right),
+  \mathcal{D}(y, \hat\mu) = \frac{2}{m}\sum_{i=1}^{m} \left( y_i \log\frac{y_i}{\hat\mu_i} - (y_i - \hat\mu_i) \right),
 \]
-where $y_i$ are the observed counts and $\hat\mu_i$ are the predicted means.
+where $m$ is the number of held-out samples, $y_i$ are the observed counts, and $\hat\mu_i$ are the predicted means.
+We use the standard convention $0 \log 0 = 0$.
 We used Poisson deviance rather than RMSE, correlation, or absolute-error criteria because the prediction target is a count and both competing models are fitted under Poisson mean assumptions.
 Poisson deviance is a proper scoring rule for count data: it is minimised in expectation by the true conditional mean $\mathbb{E}[Y_i \mid x_i]$, so a model that achieves lower held-out deviance genuinely predicts better rather than simply fitting the training data more closely~\citep{Gneiting2007ProperScoring}.
 This property, which in-sample criteria such as ELBO and BIC do not share, is what makes held-out Poisson deviance the principled choice for comparing count models out of sample.

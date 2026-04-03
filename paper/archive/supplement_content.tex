@@ -7,32 +7,35 @@
 
 Let $Y \in \mathbb{Z}_{\geq 0}^{N \times D}$ denote the observed count matrix with $N$ samples and $D$ taxa.
 Write $Y_{\cdot j} \in \mathbb{Z}_{\geq 0}^{N}$ for the $j$-th column (the count vector of taxon $j$ across all samples) and $Y_{\cdot,-j} \in \mathbb{Z}_{\geq 0}^{N \times (D-1)}$ for the matrix of all remaining taxa.
-Let $\mathcal{A}$ denote a count regression algorithm that, given training data, returns a predicted mean vector $\hat{\mu}^{(-j)} \in \mathbb{R}_{>0}^{N}$ for a held-out taxon $j$.
-The Poisson deviance between observed counts $y \in \mathbb{Z}_{\geq 0}^{N}$ and predicted means $\hat{\mu} \in \mathbb{R}_{>0}^{N}$ is
+Let $\mathcal{I}_1,\ldots,\mathcal{I}_K$ denote a partition of the samples into $K$ folds.
+Let $\mathcal{A}$ denote a count regression algorithm.
+For each target taxon $j$ and sample fold $k$, the algorithm is trained on the samples outside $\mathcal{I}_k$ using taxon $j$ as the response and the remaining taxa as predictors.
+Let $\hat{\mu}^{(-k,j)}_{ij} \in \mathbb{R}_{>0}$ denote the predicted mean for held-out sample $i \in \mathcal{I}_k$ and target taxon $j$.
+The mean Poisson deviance between observed counts $y \in \mathbb{Z}_{\geq 0}^{m}$ and predicted means $\hat{\mu} \in \mathbb{R}_{>0}^{m}$ is
 \[
   \mathcal{D}(y,\, \hat{\mu})
   \;=\;
-  2 \sum_{i=1}^{N} \left( y_i \log \frac{y_i}{\hat{\mu}_i} - (y_i - \hat{\mu}_i) \right),
+  \frac{2}{m} \sum_{i=1}^{m} \left( y_i \log \frac{y_i}{\hat{\mu}_i} - (y_i - \hat{\mu}_i) \right),
 \]
 with the convention $0 \log 0 = 0$.
 
 \subsection*{S1.2\quad The LOTO-CV Estimator}
 
-The Leave-One-Taxon-Out cross-validation (LOTO-CV) estimator of the expected out-of-sample deviance for algorithm $\mathcal{A}$ is
+The estimator reported in the paper is
 \[
-  \widehat{\mathcal{D}}_{\mathrm{LOTO}}(\mathcal{A})
+  \widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}(\mathcal{A})
   \;=\;
-  \frac{1}{D} \sum_{j=1}^{D}
-  \mathcal{D}\!\left(Y_{\cdot j},\; \hat{\mu}^{(-j)}_{\mathcal{A}}\right),
+  \frac{1}{DK} \sum_{j=1}^{D}\sum_{k=1}^{K}
+  \mathcal{D}\!\left(Y_{\mathcal{I}_k j},\; \hat{\mu}^{(-k,j)}_{\mathcal{A}}\right),
 \]
-where $\hat{\mu}^{(-j)}_{\mathcal{A}}$ is the predicted mean vector obtained by training $\mathcal{A}$ on $Y_{\cdot,-j}$ and predicting taxon $j$.
-Each taxon serves once as the prediction target and once as part of the predictor set, so the estimator uses the full data without data leakage between training and evaluation.
+where $Y_{\mathcal{I}_k j}$ is the vector of observed counts for target taxon $j$ on the held-out samples in fold $k$.
+Each taxon serves once as the prediction target, and each sample serves once as a held-out observation within each taxon-specific regression problem.
 
 \subsection*{S1.3\quad Poisson Deviance as a Proper Scoring Rule}
 
 Proper scoring rules are loss functions minimised in expectation by the true conditional distribution \citep{Gneiting2007ProperScoring}.
 We establish properness of the Poisson deviance via the Bregman divergence representation.
-Let $\phi: \mathbb{R}_{>0} \to \mathbb{R}$ be the strictly convex function $\phi(\mu) = \mu \log \mu - \mu$.
+Let $\phi: \mathbb{R}_{\geq 0} \to \mathbb{R}$ be the strictly convex function $\phi(\mu) = \mu \log \mu - \mu$, extended continuously at zero so that $\phi(0)=0$.
 The associated Bregman divergence is
 \[
   B_{\phi}(y,\,\mu)
@@ -41,7 +44,10 @@ The associated Bregman divergence is
   \;=\;
   y \log\frac{y}{\mu} - (y - \mu),
 \]
-so that $\mathcal{D}(y,\mu) = 2 \sum_i B_\phi(y_i, \mu_i)$.
+so that for vectors of length $m$,
+\[
+  \mathcal{D}(y,\mu) = \frac{2}{m} \sum_i B_\phi(y_i, \mu_i).
+\]
 
 \begin{proposition}[Properness of Poisson deviance]
 Let $Y$ be a non-negative integer-valued random variable with finite mean $\mu^* = \mathbb{E}[Y]$.
@@ -86,14 +92,14 @@ This is the guarantee that in-sample criteria such as ELBO and BIC do not provid
 
 \subsection*{S1.4\quad Population Target and the Exchangeability Assumption}
 
-The population quantity that $\widehat{\mathcal{D}}_{\mathrm{LOTO}}$ estimates is
+The population quantity that $\widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}$ estimates is
 \[
   R(\mathcal{A})
   \;=\;
-  \mathbb{E}\!\left[\,\mathcal{D}\!\left(Y_{\cdot j},\; \hat{\mu}^{(-j)}_{\mathcal{A}}\right)\right],
+  \mathbb{E}\!\left[\,\mathcal{D}\!\left(Y_{\mathcal{I}_k j},\; \hat{\mu}^{(-k,j)}_{\mathcal{A}}\right)\right],
 \]
-where the expectation is over new realisations of the count matrix.
-Under \emph{taxon exchangeability} --- the assumption that the $D$ columns of $Y$ are exchangeable draws from the same marginal distribution --- $\widehat{\mathcal{D}}_{\mathrm{LOTO}}$ is an approximately unbiased estimator of $R(\mathcal{A})$, and $\mathcal{A}$ is selected by minimising this estimate.
+where the expectation is over new realisations of the count matrix together with the random choice of target taxon $j$ and sample fold $k$.
+Under \emph{taxon exchangeability} --- the assumption that the $D$ columns of $Y$ are exchangeable draws from the same marginal distribution --- $\widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}$ is an approximately unbiased estimator of $R(\mathcal{A})$, and $\mathcal{A}$ is selected by minimising this estimate.
 
 In real microbiome data, taxa are not exchangeable: they span different phyla, have different mean abundances, and exhibit different sparsity profiles.
 Taxon exchangeability is therefore an idealisation.
@@ -101,19 +107,10 @@ However, any bias this introduces applies equally to all algorithms being compar
 
 \subsection*{S1.5\quad Outer $K$-fold Approximation}
 
-For computational tractability, the paper uses $K = 3$ outer folds rather than full LOTO over all $D$ taxa.
-In each outer fold $k$, a subset of taxa $\mathcal{J}_k$ is held out and the algorithm is trained on the remaining $D - |\mathcal{J}_k|$ taxa.
-The $K$-fold approximation to the LOTO-CV estimator is
-\[
-  \widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}K}(\mathcal{A})
-  \;=\;
-  \frac{1}{K} \sum_{k=1}^{K}
-  \frac{1}{|\mathcal{J}_k|}
-  \sum_{j \in \mathcal{J}_k}
-  \mathcal{D}\!\left(Y_{\cdot j},\; \hat{\mu}^{(-\mathcal{J}_k)}_{\mathcal{A}}\right).
-\]
-Because each fold trains on $D(1 - 1/K)$ taxa rather than $D - 1$, this introduces a small pessimistic bias: the algorithm sees fewer predictors per fold than true LOTO would allow.
-This bias is consistent across all compared methods and does not affect the relative ordering of algorithms.
+For computational tractability, the paper uses $K = 3$ outer folds over samples.
+For each target taxon $j$, the algorithm is trained on samples outside $\mathcal{I}_k$ and evaluated on held-out samples in $\mathcal{I}_k$.
+This produces one held-out score for each target-taxon and sample-fold pair.
+The reported benchmark score is the average of these $D \times K$ scores.
 
 \clearpage
 % ============================================================
