@@ -42,7 +42,7 @@
 \end{center}
 \vspace{0.8em}
 \begin{abstract}
-Multivariate count models are often justified by their ability to capture latent dependence, but practitioners receive little guidance on when this added structure improves on simpler penalized marginal Poisson regression.
+Multivariate count models are often justified by their ability to capture latent dependence, but researchers receive little guidance on when this added structure improves on simpler penalized marginal Poisson regression.
 We study this question using exclusively real microbiome data under a unified held-out evaluation framework.
 For count prediction, we compare PLN and \texttt{GLMNet(Poisson)} on 20 real microbiome datasets spanning $N = 32$--$18{,}270$ and $D = 24$--$257$, using held-out Poisson deviance under Leave-One-Taxon-Out cross-validation rather than synthetic or in-sample criteria.
 For network inference, we compare PLNNetwork and \texttt{GLMNet(Poisson)} neighbourhood selection on all five publicly available real datasets with experimentally validated microbial interaction truth.
@@ -188,7 +188,7 @@ We evaluated count prediction on a heterogeneous benchmark of 20 real microbiome
 The retained benchmark set includes feature tables at the family, genus, species, and OTU levels and covers a broad range of sample sizes and feature dimensions.
 Across datasets, the number of samples ranged from $N=32$ to $N=18{,}270$, the number of features ranged from $D=24$ to $D=257$, and the fraction of zero entries in the benchmarked abundance matrices ranged from $30.64\%$ to $93.01\%$.
 
-The goal of this collection is not to represent a single biological system, but to cover the range of settings in which practitioners actually face a choice between a joint latent count model and a faster penalized regression baseline.
+The goal of this collection is not to represent a single biological system, but to cover the range of settings in which researchers actually face a choice between a joint latent count model and a faster penalized regression baseline.
 Several dataset families are particularly important for that comparison.
 American Gut 2~\citep{McDonald2018}, MehtaRS 2018~\citep{Mehta2018}, and MBQC integrated OTUs~\citep{MBQC2017} represent larger and more heterogeneous microbiome surveys, including a very large benchmark-style study in the MBQC collection.
 These datasets are useful because they test whether PLN retains an advantage when sample size is no longer the main bottleneck.
@@ -547,7 +547,7 @@ For count prediction, PLN is most useful when samples are scarce relative to dim
 \texttt{GLMNet(Poisson)} becomes the better practical choice as $N/D$ grows and the data become closer to the Poisson setting.
 For network inference, PLNNetwork is stronger on broad undirected community graphs, whereas \texttt{GLMNet(Poisson)} is better matched to local or directional effects.
 Although PLN is substantially more expensive computationally, its observed costs remain practical on the benchmark sizes studied here.
-These results give practitioners concrete guidance for deciding when latent dependence modeling is likely to justify its added complexity and when a simpler penalized marginal model is preferable.
+These results give researchers concrete guidance for deciding when latent dependence modeling is likely to justify its added complexity and when a simpler penalized marginal model is preferable.
 
 \paragraph{Key findings.}
 The benchmark yields four main observations.
@@ -562,7 +562,7 @@ Several directions follow from the limitations of this study.
 First, the benchmark draws from a finite set of public datasets; broader coverage of environments such as soil, marine, and host-associated systems, as well as diverse sequencing protocols, would strengthen the generalisability of the conclusions.
 Second, all algorithms received the same \texttt{log1p}-transformed input~\citep{doi:10.1128/mSystems.00016-19}; different normalisation or offset strategies may shift relative performance, and evaluating PLN on raw counts (the input it is designed for) is an important next step.
 Third, the comparison is restricted to algorithms in the Poisson family; extending the protocol to negative-binomial and zero-inflated models would give a more complete picture of the count-modelling landscape~\citep{10.1038/s41598-024-76513-8,10.1101/538579,10.1093/bioadv/vbae167,Champion2024OneNet}.
-Fourth, lightweight diagnostics that estimate recoverable latent dependence (for example, through stability of conditional correlations across folds) could help practitioners decide when PLN is likely to provide benefits before incurring its full computational cost.
+Fourth, lightweight diagnostics that estimate recoverable latent dependence (for example, through stability of conditional correlations across folds) could help researchers decide when PLN is likely to provide benefits before incurring its full computational cost.
 Finally, the computational experiments were conducted on Northern Arizona University's Monsoon supercomputer~\citep{Buechler2025MonsoonIntro}; profiling PLN under multi-threaded execution and at larger sample sizes would give a more complete picture of its practical scalability.
 
 \section*{Declarations}
