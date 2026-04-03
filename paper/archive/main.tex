@@ -560,10 +560,10 @@ Fourth, PLN is substantially more expensive than \texttt{GLMNet(Poisson)}, but t
 \paragraph{Future directions.}
 Several directions follow from the limitations of this study.
 First, the benchmark draws from a finite set of public datasets; broader coverage of environments such as soil, marine, and host-associated systems, as well as diverse sequencing protocols, would strengthen the generalisability of the conclusions.
-Second, all algorithms received the same \texttt{log1p}-transformed input~\citep{doi:10.1128/mSystems.00016-19}; different normalisation or offset strategies may shift relative performance, and evaluating PLN on raw counts (the input it is designed for) is an important next step.
+Second, all algorithms received the same \texttt{log1p}-transformed input~\citep{doi:10.1128/mSystems.00016-19} to ensure that performance differences reflected model structure rather than preprocessing.
+We also explored fitting PLN on raw counts, but the resulting comparisons were not stable: improvements were inconsistent across datasets and outliers became more prominent.
+Different normalisation or offset strategies may still shift relative performance and remain an important direction for future work.
 Third, the comparison is restricted to algorithms in the Poisson family; extending the protocol to negative-binomial and zero-inflated models would give a more complete picture of the count-modelling landscape~\citep{10.1038/s41598-024-76513-8,10.1101/538579,10.1093/bioadv/vbae167,Champion2024OneNet}.
-Fourth, lightweight diagnostics that estimate recoverable latent dependence (for example, through stability of conditional correlations across folds) could help researchers decide when PLN is likely to provide benefits before incurring its full computational cost.
-Finally, the computational experiments were conducted on Northern Arizona University's Monsoon supercomputer~\citep{Buechler2025MonsoonIntro}; profiling PLN under multi-threaded execution and at larger sample sizes would give a more complete picture of its practical scalability.
 
 \section*{Declarations}
 
