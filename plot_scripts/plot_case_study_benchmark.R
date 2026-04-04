@@ -110,7 +110,7 @@ build_plot_data <- function() {
   )]
 
   score_summary <- merge(score_summary, dataset_info, by = "dataset", all.x = TRUE)
-  score_summary[, dataset_label := paste0(dataset_name, "\nn=", N, ", p=", D)]
+  score_summary[, dataset_label := paste0(dataset_name, "\nN=", N, ", D=", D)]
 
   panel_tests <- merge(
     unique(dataset_info[, .(dataset, panel, panel_color, panel_order)]),
@@ -122,7 +122,7 @@ build_plot_data <- function() {
   gc()
 
   panel_tests[, diff_value := ifelse(panel_order == 1L, diff_pln_minus_glmnet, diff_glmnet_minus_pln)]
-  panel_tests[, p_label := ifelse(p_value < 1e-4, "P<1e-4", sprintf("P=%.4f", p_value))]
+  panel_tests[, p_label := ifelse(p_value < 1e-4, "p<1e-4", sprintf("p=%.4f", p_value))]
   panel_tests[, diff_label := sprintf("Diff=%.3f, %s", diff_value, p_label)]
 
   glmnet_ref <- score_summary[algorithm == "GLMNet (Poisson)", .(
@@ -184,7 +184,7 @@ if (build_data_only) {
 plot_dt[, algorithm := factor(algorithm, levels = c("Featureless", "GLMNet", "PLN"))]
 
 build_panel_plot <- function(panel_name, title_text = panel_name, show_y_title = TRUE) {
-  panel_levels <- dataset_info[panel == panel_name][order(dataset_name), paste0(dataset_name, "\nn=", N, ", p=", D)]
+  panel_levels <- dataset_info[panel == panel_name][order(dataset_name), paste0(dataset_name, "\nN=", N, ", D=", D)]
 
   panel_scores <- copy(plot_dt[panel == panel_name])
   panel_scores[, dataset_label := factor(dataset_label, levels = panel_levels)]

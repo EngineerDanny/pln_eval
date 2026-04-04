@@ -69,5 +69,5 @@ The benchmark spans human gut, oral, soil, and other environments from publicly 
 - SLURM cluster (all R scripts should be run via `srun`)
 
 ```bash
-srun /projects/genomic-ml/da2343/soak-r/bin/Rscript <script.R>
+/projects/genomic-ml/da2343/soak-r/bin/Rscript <script.R>
 ```

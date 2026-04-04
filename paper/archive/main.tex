@@ -337,23 +337,6 @@ Runtime and memory scaling were profiled using the \texttt{atime} R package on t
 For the saved profiling run, the number of taxa $p$ was varied from 10 to 1000 at a fixed sample size of $N=110$, and each configuration was run three times.
 We report median wall time and peak memory across those repeated measurements.
 
-
-\section{Results}
-\subsection{Count-prediction results}
-
-The central empirical result is that relative predictive performance varies systematically across datasets rather than favoring a single method.
-Figure~\ref{fig:nd_mac_scatter} shows that the sample-to-taxon ratio $N/D$ is the primary determinant of outperformance across datasets. 
-PLN wins in 12 of 14 datasets with $N/D < 5$ and in none of the 6 datasets with $N/D \geq 5$.
-PLN tends to win when $N/D$ is small and the average dependence among taxa is strong.
-\texttt{GLMNet(Poisson)} tends to win when $N/D$ is large and inter-taxon dependence is weaker.
-
-Mean Absolute Correlation (MAC) is the strongest secondary signal and provides a visually intuitive summary of inter-taxon dependence strength.
-Among datasets where \texttt{GLMNet(Poisson)} wins despite low $N/D$, CosteaPI~2017 ($N/D = 1.56$, MAC $= 0.055$) has distinctly low MAC, consistent with weak community dependence reducing the benefit of PLN's latent layer.
-American Gut~1 ($N/D = 2.28$, MAC $= 0.182$) is an outlier where \texttt{GLMNet(Poisson)} wins despite moderate dependence.
-Overdispersion is an additional predictor that further distinguishes settings where PLN's latent Gaussian layer is most beneficial.
-This aligns with the structure of the PLN model.
-Its latent Gaussian layer is most useful when counts depart substantially from the Poisson assumption and when joint dependence among taxa carries predictive signal.
-
 \begin{figure}[!t]
 \centering
 \begin{tikzpicture}
@@ -402,6 +385,22 @@ Red squares: \texttt{GLMNet(Poisson)} achieves lower held-out Poisson deviance.
 The orange triangle marks American Gut~1, a GLMNet win at low $N/D$ and high MAC that runs counter to the general pattern.}
 \label{fig:nd_mac_scatter}
 \end{figure}
+
+\section{Results}
+\subsection{Count-prediction results}
+
+The central empirical result is that relative predictive performance varies systematically across datasets rather than favoring a single method.
+Figure~\ref{fig:nd_mac_scatter} shows that the sample-to-taxon ratio $N/D$ is the primary determinant of outperformance across datasets. 
+PLN wins in 12 of 14 datasets with $N/D < 5$ and in none of the 6 datasets with $N/D \geq 5$.
+PLN tends to win when $N/D$ is small and the average dependence among taxa is strong.
+\texttt{GLMNet(Poisson)} tends to win when $N/D$ is large and inter-taxon dependence is weaker.
+
+Mean Absolute Correlation (MAC) is the strongest secondary signal and provides a visually intuitive summary of inter-taxon dependence strength.
+Among datasets where \texttt{GLMNet(Poisson)} wins despite low $N/D$, CosteaPI~2017 ($N/D = 1.56$, MAC $= 0.055$) has distinctly low MAC, consistent with weak community dependence reducing the benefit of PLN's latent layer.
+American Gut~1 ($N/D = 2.28$, MAC $= 0.182$) is an outlier where \texttt{GLMNet(Poisson)} wins despite moderate dependence.
+Overdispersion is an additional predictor that further distinguishes settings where PLN's latent Gaussian layer is most beneficial.
+This aligns with the structure of the PLN model.
+Its latent Gaussian layer is most useful when counts depart substantially from the Poisson assumption and when joint dependence among taxa carries predictive signal.
 
 Table~S4 reports the complete retained 20-dataset count-prediction benchmark and highlights the strongest dataset-level contrasts in both directions.
 The table includes standard errors, paired $p$-values from a Wilcoxon signed-rank test, and Benjamini--Hochberg adjusted $q$-values to account for multiple testing across the 20 datasets.
@@ -486,6 +485,16 @@ In this setting, the ground truth is driven by targeted pairwise effects rather 
 \subsection{Computational scaling}
 \label{subsec:computational-scaling}
 
+Computational cost differs sharply between the two model classes.
+Across the full range of $D$ values in Figure~\ref{fig:atime}, PLN is consistently slower and more memory-intensive than \texttt{GLMNet(Poisson)}.
+At $D = 1000$, PLN requires about 76\,s of wall time and 392\,MB of peak memory, whereas \texttt{GLMNet(Poisson)} requires about 0.28\,s and 79\,MB.
+
+The scaling pattern matches the model structure.
+PLN must estimate and manipulate a dense latent covariance matrix, so its cost increases much more quickly with dimension.
+\texttt{GLMNet(Poisson)} fits separate penalized regressions and remains comparatively cheap even at the largest tested dimension.
+Even so, the observed PLN costs remain manageable on the benchmark sizes studied here, which makes the practical trade-off one of speed versus accuracy rather than feasibility versus infeasibility.
+
+
 \begin{figure}[!t]
   \centering
   \includegraphics[width=0.94\textwidth]{figure6_computational_scaling}
@@ -496,16 +505,6 @@ In this setting, the ground truth is driven by targeted pairwise effects rather 
   Both axes are on a log scale.}
   \label{fig:atime}
 \end{figure}
-
-Computational cost differs sharply between the two model classes.
-Across the full range of $D$ values in Figure~\ref{fig:atime}, PLN is consistently slower and more memory-intensive than \texttt{GLMNet(Poisson)}.
-At $D = 1000$, PLN requires about 76\,s of wall time and 392\,MB of peak memory, whereas \texttt{GLMNet(Poisson)} requires about 0.28\,s and 79\,MB.
-
-The scaling pattern matches the model structure.
-PLN must estimate and manipulate a dense latent covariance matrix, so its cost increases much more quickly with dimension.
-\texttt{GLMNet(Poisson)} fits separate penalized regressions and remains comparatively cheap even at the largest tested dimension.
-Even so, the observed PLN costs remain manageable on the benchmark sizes studied here, which makes the practical trade-off one of speed versus accuracy rather than feasibility versus infeasibility.
-
 
 \section{Discussion}
 \label{sec:discussion}
