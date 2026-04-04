@@ -57,18 +57,18 @@ Taken together, these results provide practical guidance for choosing between la
 \section{Introduction}
 Microbial communities profiled by Next-Generation Sequencing produce count data with distinctive statistical properties.
 Observations are nonnegative integers, contain many zeros, and are strongly overdispersed.   
-Moreover, the number of taxa $D$ routinely exceeds the number of biological samples $N$~\citep{lagkouvardos2016imngs, Kodikara2022}.
+Moreover, the number of taxa $D$ routinely exceeds the number of biological samples $N$~\citep{Kodikara2022}.
 These properties jointly challenge the assumptions of standard Gaussian models and limit the use of conventional Poisson regression, which cannot accommodate residual correlations among taxa or the extra-Poisson variability that arises from unobserved biological heterogeneity~\citep{mcmurdie2014waste, Chiquet2021}.
 
 The Poisson Log-Normal (PLN) model addresses these limitations by introducing a latent Gaussian layer that captures both overdispersion and dependence among taxa within a principled probabilistic framework~\citep{aitchison1989multivariate, Chiquet2021}.
 This latent structure supports a family of downstream analyses, including conditional prediction, dimensionality reduction, and the recovery of sparse ecological interaction networks through graphical lasso regularization~\citep{chiquet2019variational}.
-The PLN family is fitted using variational inference and has been increasingly applied in microbiome studies that require explicit modeling of taxon dependencies~\citep{Chiquet2021, Subedi2025}.
+The PLN family is fitted using variational inference and has been increasingly applied in microbiome studies that require explicit modeling of taxon dependencies~\citep{Chiquet2021, SUBEDI20251255}.
 
 Despite this appeal, PLN models carry a practical cost.
 Estimating a full $D \times D$ latent covariance matrix scales cubically in $D$, making PLN computationally demanding for the large, sparse count tables typical of modern microbiome surveys.
 By contrast, penalized Poisson regression implemented efficiently in \texttt{glmnet}~\citep{Friedman2010} fits each taxon independently using $\ell_1$ regularization, scales near-linearly in $D$, and remains tractable even when $D$ runs into the thousands.
 The fundamental question motivating this work is therefore empirical.
-Under what conditions does PLN's added modeling complexity translate into measurable gains over penalized Poisson regression?
+Under what conditions do PLN's added modeling complexity translate into measurable gains over penalized Poisson regression?
 
 This question has direct practical consequences.
 A researcher analyzing a dataset with $N = 50$ samples and $D = 200$ taxa faces a genuine modeling choice between investing in PLN's joint estimation at computational cost and relying on the faster penalized regression baseline.
@@ -78,7 +78,7 @@ As summarized in Table~\ref{tab:related_work}, systematic comparisons against pe
 Prior work has therefore not provided a held-out comparison built entirely from real microbiome count tables rather than synthetic benchmarks supplemented by a few illustrative applications.
 This gap is not merely a matter of coverage: in-sample criteria such as ELBO, BIC, and AIC measure how well a model fits the data it was trained on, not whether its latent structure captures signal that transfers to unseen observations.
 A model that overfits the latent covariance can appear superior by in-sample criteria while actually performing worse out of sample.
-The absence of held-out evaluation has therefore left the practical question --- when does PLN's complexity pay off? --- unanswerable from existing work.
+The absence of held-out evaluation has therefore left the practical question, when does PLN's complexity pay off?
 
 A similar gap exists for network inference.
 PLNNetwork recovers ecological interaction networks by estimating a sparse latent precision matrix~\citep{chiquet2019variational}, while neighbourhood selection through \texttt{GLMNet(Poisson)} offers an alternative route to network recovery without a joint model~\citep{Meinshausen2006, Friedman2010}.
@@ -92,7 +92,7 @@ The remainder of the paper is organized as follows.
 Section~2 reviews related work and situates this study within the existing benchmark literature.
 Section~3 describes the algorithms, datasets, and evaluation protocol.
 Section~4 presents results for prediction and network inference.
-Section~5 discusses computational scaling.
+Section~5 provides a discussion of the results, implications, and limitations.
 Section~6 concludes.
 
 \section{Related Work}
@@ -104,18 +104,18 @@ Table~\ref{tab:related_work} summarizes how prior studies approach evaluation.
 Microbiome surveys via 16S rRNA amplicon sequencing or shotgun metagenomics produce read-count tables of non-negative integers whose observed values depend on the total number of reads sequenced per sample~\citep{HMP2012, Thompson2017, Xia2023}.
 Three properties of these counts make standard Gaussian regression inappropriate. 
 The latter two also show that plain Poisson regression is insufficient, motivating latent-variable extensions such as the Poisson Log-Normal.
-First, \emph{compositionality}: total read depth (library size) varies across samples by orders of magnitude and carries no biological information; models that ignore this offset confound technical sequencing variation with biological signal~\citep{mcmurdie2014waste, Xia2023}.
-Second, \emph{overdispersion}: counts exhibit variance far exceeding the Poisson mean, as genuine biological variation across individuals and environments inflates count variance beyond what the Poisson distribution allows~\citep{zhang2017nbmm, McCullaghNelder1989}. 
+First, \emph{compositionality}: total read depth (library size) varies across samples by orders of magnitude and carries no biological information; models that ignore this offset confound technical sequencing variation with biological signal~\citep{mcmurdie2014waste}.
+Second, \emph{overdispersion}: counts exhibit variance far exceeding the Poisson mean, as genuine biological variation across individuals and environments inflates count variance beyond what the Poisson distribution allows~\citep{zhang2017nbmm}. 
 Third, \emph{excess zeros}: the majority of entries in the count matrix are zero not because taxa are truly absent but because rare taxa fall below the sequencing detection threshold, with data sparsity commonly exceeding 70\%~\citep{Batardiere2025ZIPLN, Kodikara2022}.
 Gaussian regression treats counts as unbounded continuous quantities.
 Ad hoc transformations such as $\log(1+x)$ can improve numerical behavior and stability, but they do not by themselves resolve discrete support or compositional structure~\citep{booeshaghi2021log1p}.
 
 \paragraph{The Poisson Log-Normal model.}
-The generalized linear model with Poisson or Negative Binomial likelihood is the natural framework for overdispersed count data~\citep{McCullaghNelder1989}.
+The generalized linear model with Poisson or Negative Binomial likelihood is the natural framework for overdispersed count data~\citep{zhang2017nbmm}.
 For univariate differential abundance testing, Negative Binomial models are widely used, as implemented in DESeq2~\citep{Love2014DESeq2} and edgeR~\citep{Robinson2010edgeR}.
 These are, however, marginal models: each taxon is fitted independently, so the joint dependence structure across taxa is not represented.
 The Poisson Log-Normal (PLN) model, first introduced by Aitchison and Ho~\citep{aitchison1989multivariate}, addresses this by placing a multivariate Gaussian distribution on the log-intensities, capturing correlations between different taxa through a shared latent covariance matrix while still respecting the discrete, non-negative nature of the data and accommodating library-size offsets.
-This makes PLN a single coherent framework for prediction, ordination, clustering, and network inference from count data~\citep{Chiquet2021, Subedi2025}.
+This makes PLN a single coherent framework for prediction, ordination, clustering, and network inference from count data~\citep{Chiquet2021, SUBEDI20251255}.
 
 \paragraph{Prediction and representation learning.}
 Poisson PCA has been assessed primarily through simulations emphasizing principal component recovery, robustness, and computational efficiency, with microbiome datasets serving as motivating illustrations~\citep{Kenney2021PoissonPCA, Virta2023PoissonPCA}.
@@ -140,17 +140,17 @@ Study (year) & Data / setting & Algorithms tested & Evaluation metrics \\
 \midrule
 \citet{Kenney2021PoissonPCA} & Simulations; microbiome example & Poisson PCA, PLN & Subspace recovery (principal angles); robustness to noise and exposure; runtime \\
 \midrule
-\citet{Chiquet2021} & Multiple ecology/microbiome case studies & PLN, PLNPCA, PLNNetwork, PLNMixture & BIC/ICL for model order selection; illustrative fits across tasks; no held-out evaluation \\
+\citet{Chiquet2021} & Multiple ecology/microbiome case studies & PLN, PLNPCA, PLNNetwork, PLNMixture & BIC/ICL for model order selection; illustrative fits across tasks \\
 \midrule
 \citet{Xiao2022PLNet} & Synthetic count networks; real scRNA-seq data & PLNet, VPLN, latentcor, glasso & AUPR/AUC for edge recovery; runtime \\
 \midrule
 \citet{Virta2023PoissonPCA} & Simulations; real count matrices & Poisson PCA, vectorization PCA, matrix-normal methods & Subspace estimation error (principal angles); latent-rank selection accuracy; runtime \\
 \midrule
-\citet{Qian2024} & Synthetic microbial communities (5 sizes, 4 topologies) & PLN, MIC, Pearson, Ma et al. & 3-class accuracy for interaction type recovery; topology and size effects \\
+\citet{Qian2024} & Synthetic microbial communities (5 sizes, 4 topologies) & PLN, MIC, Pearson, MA & 3-class accuracy for interaction type recovery; topology and size effects \\
 \midrule
 \citet{Batardiere2025ZIPLN} & High-zero simulations; cow microbiome & ZIPLN, PLN & In-sample log-likelihood (ELBO/BIC/AIC); latent dispersion; group discrimination \\
 \midrule
-\citet{Chaussard2025PLNTree} & Synthetic datasets; human gut microbiome (T2D) & PLN-Tree, mean-field PLN, PLN & ELBO/log-likelihood; Shannon, Simpson, Bray-Curtis diversity; downstream classification accuracy \\
+\citet{Chaussard2025PLNTree} & Synthetic datasets; human gut microbiome & PLN-Tree, mean-field PLN, PLN & ELBO/log-likelihood; Shannon, Simpson, Bray-Curtis diversity; downstream classification accuracy \\
 \midrule
 This work (2026) & 20 real microbiome datasets; 5 experimental interaction datasets & PLN, PLNNetwork, \texttt{GLMNet(Poisson)}, featureless & Prediction: held-out Poisson deviance under 3-fold LOTO-CV; network inference: F1 score against experimental ground truth; runtime; memory \\
 \bottomrule
@@ -167,7 +167,7 @@ As shown in Table~\ref{tab:related_work}, the field still lacks a unified empiri
 \begin{itemize}
   \item We introduce LOTO-CV as a held-out evaluation framework for Poisson count models, filling a methodological gap in the PLN benchmark literature where all prior evaluations use in-sample criteria. Applied to 20 real microbiome datasets, this yields the first out-of-sample comparison of PLN and \texttt{GLMNet(Poisson)} on real data.
   \item We identify $N/D$ as the primary empirical predictor of the dataset-level winner, MAC as the strongest secondary signal, and overdispersion as an additional predictor. PLN wins in 12 of 14 datasets with $N/D < 5$ and in none of the 6 with $N/D \geq 5$, improving on \texttt{GLMNet(Poisson)} by up to 38\% in the favorable regime.
-  \item We evaluate PLNNetwork and \texttt{GLMNet} neighbourhood selection against all five publicly available datasets with experimentally validated microbial interaction truth --- the complete set of such resources in the current literature. This is the first comparison of these approaches on real biological ground truth rather than simulated networks.
+  \item We evaluate PLNNetwork and \texttt{GLMNet} neighbourhood selection against all five publicly available datasets with experimentally validated microbial interaction truth. This is the first comparison of these approaches on real biological ground truth rather than simulated networks.
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%
@@ -184,26 +184,24 @@ Our benchmark instead withholds a target taxon, predicts its counts out of sampl
 \subsection{Datasets}
 \subsubsection{Count-prediction datasets}
 \label{subsec:count-prediction-datasets}
-We evaluated count prediction on a heterogeneous benchmark of 20 real microbiome datasets spanning oral, skin, nasal, stool, infant, pediatric, and general gut systems, together with several collections focused on disease including colorectal  (CRC), \textit{Clostridium difficile} infection, HIV, non-alcoholic steatohepatitis, obesity, and type~1 diabetes.
+We evaluated count prediction on a heterogeneous benchmark of 20 publicly available real microbiome datasets spanning oral, skin, nasal, stool, infant, pediatric, and general gut systems, together with several collections focused on disease including colorectal  (CRC), \textit{Clostridium difficile} infection, HIV, obesity, and type~1 diabetes.
 The retained benchmark set includes feature tables at the family, genus, species, and OTU levels and covers a broad range of sample sizes and feature dimensions.
 Across datasets, the number of samples ranged from $N=32$ to $N=18{,}270$, the number of features ranged from $D=24$ to $D=257$, and the fraction of zero entries in the benchmarked abundance matrices ranged from $30.64\%$ to $93.01\%$.
 
 The goal of this collection is not to represent a single biological system, but to cover the range of settings in which researchers actually face a choice between a joint latent count model and a faster penalized regression baseline.
 Several dataset families are particularly important for that comparison.
-American Gut 2~\citep{McDonald2018}, MehtaRS 2018~\citep{Mehta2018}, and MBQC integrated OTUs~\citep{MBQC2017} represent larger and more heterogeneous microbiome surveys, including a very large benchmark-style study in the MBQC collection.
+American Gut 2~\citep{McDonald2018}, MehtaRS 2018~\citep{Mehta2018}, and MBQC integrated OTUs~\citep{MBQC2017} represent larger and more heterogeneous microbiome surveys, including a very large study in the MBQC collection.
 These datasets are useful because they test whether PLN retains an advantage when sample size is no longer the main bottleneck.
 
 Other datasets probe the opposite end of the benchmark.
-Lozupone HIV~\citep{Lozupone2013}, RubelMA 2020~\citep{Rubel2020}, and several of the disease-focused stool datasets have relatively small $N$, moderate or large $D$, or both.
+Lozupone HIV~\citep{Lozupone2013} and several of the disease-focused stool datasets have relatively small $N$, moderate or large $D$, or both.
 These are the settings in which the balance between latent covariance estimation and penalized univariate fitting becomes most visible.
-The benchmark also includes multiple colorectal cancer datasets~\citep{Yu2015, Baxter2016, Zeller2014}, early-life gut studies such as Diabimmune Karelia~\citep{Vatanen2016} and ShaoY 2019~\citep{Shao2019}, and targeted disease collections such as Schubert CDI~\citep{Schubert2014}, which together provide repeated examples of related biological questions under different sample sizes, taxonomic resolutions, and sparsity levels.
+The benchmark also includes multiple colorectal cancer datasets~\citep{Wang2012, Zeller2014}, early-life gut studies such as Diabimmune Karelia~\citep{Vatanen2016} and ShaoY 2019~\citep{Shao2019}, and targeted disease collections such as Schubert CDI~\citep{Schubert2014}, which together provide repeated examples of related biological questions under different sample sizes, taxonomic resolutions, and sparsity levels.
 
 This diversity is important for interpretation.
 The paper's goal is not to identify a single best-performing method on one cohort, but to determine which properties of the count matrix predict when PLN is worth its added complexity.
 The broad spread of $N$, $D$, sparsity, and biological settings is therefore a deliberate part of the benchmark design rather than background variation to be averaged away.
-
-Full dataset metadata, including the representative inventory previously shown in the main manuscript, are provided in Table~S2 of the Supplementary Material.
-Full benchmark identifiers and provenance are preserved in the repository metadata for exact reproducibility.
+Full dataset metadata, including the representative inventory are provided in Table~S2 of the Supplementary Material.
 
 
 \subsubsection{Network-inference datasets}
@@ -214,7 +212,7 @@ They therefore allow direct evaluation of edge recovery on biological systems fo
 
 The benchmark contains two distinct kinds of truth.
 The first kind targets broad undirected edge recovery.
-OMM12~\citep{Weiss2022OMM12} and OMM12 keystone 2023~\citep{Weiss2023Keystone} are defined human gut communities in which community composition was perturbed through coculture, deletion, or keystone-style experiments.
+OMM12~\citep{Weiss2022OMM12} and OMM12 keystone 2023~\citep{Weiss2023Keystone} are defined human gut communities in which community composition was perturbed through coculture, deletion, or keystone experiments.
 These datasets are well suited to evaluating recovery of an overall community interaction graph because the truth reflects system-wide effects across a small, fully enumerated set of taxa.
 PairInteraX~\citep{Zhu2025PairInteraX} plays a complementary role.
 It provides a much larger human gut species panel with experimentally measured pairwise coculture interaction labels, which makes it useful for testing whether the same methods still recover true edges when the number of taxa increases substantially.
@@ -226,7 +224,7 @@ These two datasets are informative because the underlying signal is closer to ``
 
 Across these datasets, sample size ranged from $N=109$ to $N=1449$, feature dimension ranged from $D=5$ to $D=96$, and data sparsity ranged from $21.25\%$ to $66.19\%$.
 Processed abundance matrices and truth edge sets were harmonized into a common benchmark format so that PLNNetwork and \texttt{GLMNet(Poisson)} could be evaluated under the same scoring rules despite their different biological origins.
-Dataset-level metadata are provided in Table~S3 of the Supplementary Material.
+Dataset metadata are provided in Table~S3 of the Supplementary Material.
 
 
 
@@ -236,7 +234,7 @@ Dataset-level metadata are provided in Table~S3 of the Supplementary Material.
 We used different methods for count prediction and network inference.
 Let $Y_{ij}$ denote the observed count for sample $i$ and taxon $j$, and let $s_i$ denote the sequencing-depth offset for sample $i$.
 For count prediction, we compared a featureless baseline, \texttt{GLMNet(Poisson)}, and PLN.
-For network inference, we compared a diagonal baseline, \texttt{GLMNet(Poisson)} neighbourhood selection, and PLNNetwork.
+For network inference, we compared \texttt{GLMNet(Poisson)} neighbourhood selection, and PLNNetwork.
 
 For count prediction, the featureless baseline predicts each target taxon by the training-set mean
 \[
@@ -293,7 +291,7 @@ The estimated interaction graph is therefore
 \hat{A}_{jk} = \mathbb{1}\!\left\{\hat{\Omega}_{jk} \neq 0\right\}.
 \]
 
-All PLN-based models were fit with variational inference using the \texttt{PLNmodels} package~\citep{Chiquet2021}.
+All PLN models were fit with variational inference using the \texttt{PLNmodels} package~\citep{Chiquet2021}.
 All penalized Poisson regressions were fit with \texttt{glmnet}~\citep{Friedman2010}.
 
 \subsection{Evaluation protocols}
@@ -311,10 +309,10 @@ The primary metric is mean held-out Poisson deviance, defined as
 \]
 where $m$ is the number of held-out samples, $y_i$ are the observed counts, and $\hat\mu_i$ are the predicted means.
 We use the standard convention $0 \log 0 = 0$.
-We used Poisson deviance rather than RMSE, correlation, or absolute-error criteria because the prediction target is a count and both competing models are fitted under Poisson mean assumptions.
+We used Poisson deviance rather than RMSE, correlation, or absolute-error criteria because all competing models are fitted under Poisson mean assumptions.
 Poisson deviance is a proper scoring rule for count data: it is minimised in expectation by the true conditional mean $\mathbb{E}[Y_i \mid x_i]$, so a model that achieves lower held-out deviance genuinely predicts better rather than simply fitting the training data more closely~\citep{Gneiting2007ProperScoring}.
 This property, which in-sample criteria such as ELBO and BIC do not share, is what makes held-out Poisson deviance the principled choice for comparing count models out of sample.
-Gaussian-style losses such as RMSE are less appropriate here because they ignore the mean-variance relationship that is central to the comparison.
+Gaussian losses such as RMSE are less appropriate here because they ignore the mean-variance relationship that is central to the comparison.
 Formal definitions, a proof of properness, and a discussion of the exchangeability assumption underlying the estimator are given in Appendix~S1.
 For \texttt{GLMNet(Poisson)}, the regularization parameter $\lambda$ was selected by inner-fold Poisson deviance using \texttt{cv.glmnet}.
 For PLN, the shrinkage parameter $\alpha$ was selected by 3-fold inner cross-validation on Poisson deviance.
@@ -324,7 +322,7 @@ The featureless baseline serves as a lower bound: any algorithm with higher devi
 
 For network inference, estimated interaction graphs were compared against experimentally validated microbial interactions from five ground-truth datasets: PairInteraX~\citep{Zhu2025PairInteraX}, OMM12~\citep{Weiss2022OMM12}, OMM12 keystone 2023~\citep{Weiss2023Keystone}, butyrate assembly 2021~\citep{Clark2021Butyrate}, and host fitness 2018~\citep{Gould2018HostFitness}.
 Each dataset provides experimentally derived pairwise interaction labels obtained from co-culture, dropout, or combinatorial abundance experiments.
-The primary metrics are precision, recall, and F1 score on edge recovery, computed by matching predicted edges against the ground-truth interaction set.
+The primary metric is the F1 score on edge recovery, computed by matching predicted edges against the ground-truth interaction set.
 For PLNNetwork, the penalty parameter was selected by EBIC on the training data.
 For \texttt{GLMNet(Poisson)} neighbourhood selection, $\lambda$ was fixed at \texttt{lambda.1se} from \texttt{cv.glmnet}.
 The diagonal baseline, which predicts an empty graph, serves as the trivial reference point.
@@ -334,9 +332,8 @@ The diagonal baseline, which predicts an empty graph, serves as the trivial refe
 
 All experiments were run on Northern Arizona University's Monsoon high-performance computing cluster~\citep{Buechler2025MonsoonIntro}.
 Prediction and network benchmark jobs were executed as single-core Slurm jobs.
-PLN-based learners were additionally run with one Torch thread to avoid conflating algorithmic differences with thread-level speedups.
 
-Runtime and memory scaling were profiled using the \texttt{atime} R package on the Vogtmann et al.\ stool species dataset~\citep{Vogtmann2016CRC}.
+Runtime and memory scaling were profiled using the \texttt{atime} R package on the Vogtmann et al.\ stool species dataset~\citep{Vogtmann2016CRC}. %TODO
 For the saved profiling run, the number of taxa $p$ was varied from 10 to 1000 at a fixed sample size of $N=110$, and each configuration was run three times.
 We report median wall time and peak memory across those repeated measurements.
 
@@ -345,11 +342,12 @@ We report median wall time and peak memory across those repeated measurements.
 \subsection{Count-prediction results}
 
 The central empirical result is that relative predictive performance varies systematically across datasets rather than favoring a single method.
-Figure~\ref{fig:nd_mac_scatter} shows that the sample-to-taxon ratio $N/D$ is the primary determinant of the dataset-level winner: PLN wins in 12 of 14 datasets with $N/D < 5$ and in none of the 6 datasets with $N/D \geq 5$.
+Figure~\ref{fig:nd_mac_scatter} shows that the sample-to-taxon ratio $N/D$ is the primary determinant of outperformance across datasets. 
+PLN wins in 12 of 14 datasets with $N/D < 5$ and in none of the 6 datasets with $N/D \geq 5$.
 PLN tends to win when $N/D$ is small and the average dependence among taxa is strong.
 \texttt{GLMNet(Poisson)} tends to win when $N/D$ is large and inter-taxon dependence is weaker.
 
-MAC is the strongest secondary signal and provides a visually intuitive summary of inter-taxon dependence strength.
+Mean Absolute Correlation (MAC) is the strongest secondary signal and provides a visually intuitive summary of inter-taxon dependence strength.
 Among datasets where \texttt{GLMNet(Poisson)} wins despite low $N/D$, CosteaPI~2017 ($N/D = 1.56$, MAC $= 0.055$) has distinctly low MAC, consistent with weak community dependence reducing the benefit of PLN's latent layer.
 American Gut~1 ($N/D = 2.28$, MAC $= 0.182$) is an outlier where \texttt{GLMNet(Poisson)} wins despite moderate dependence.
 Overdispersion is an additional predictor that further distinguishes settings where PLN's latent Gaussian layer is most beneficial.
@@ -423,12 +421,12 @@ The table includes standard errors, paired $p$-values from a Wilcoxon signed-ran
   \label{fig:count_pred_case_study}
 \end{figure}
 
-Figure~\ref{fig:count_pred_case_study} makes the same contrast concrete with representative case studies from both parts of the benchmark.
+Figure~\ref{fig:count_pred_case_study} makes the same contrast concrete with representative case studies from both parts of the benchmark. %TODO: remove PLN-favorable
 In the PLN-favorable panel, Lozupone HIV family, Zeller CRC genus, Schubert CDI family, and amgut2 all show clear reductions in held-out Poisson deviance relative to \texttt{GLMNet(Poisson)}.
 These are settings in which limited effective sample size or stronger dependence among taxa makes joint latent modeling useful.
 
 The lower panel shows the opposite pattern.
-CosteaPI 2017 stool, MBQC integrated, Diabimmune Karelia, and amgut1 all favor \texttt{GLMNet(Poisson)}, with the largest advantages appearing in better-sampled settings where independent penalized regressions are already sufficient.
+CosteaPI 2017 stool, MBQC integrated, Diabimmune Karelia, and amgut1 all favor \texttt{GLMNet(Poisson)}, with the largest advantages appearing in better sampled settings where independent penalized regressions are already sufficient.
 In all eight examples, both fitted methods improve over the featureless baseline, indicating that the comparison is between two informative models rather than between signal and noise.
 
 
@@ -461,7 +459,7 @@ Its mean bootstrap F1 score exceeds that of \texttt{GLMNet(Poisson)} on OMM12 ($
 These datasets reward recovery of a global undirected interaction structure, which matches the inductive bias of a sparse latent precision matrix.
 
 The OMM12 example in Figure~\ref{fig:network_case_omm12} illustrates this contrast.
-OMM12 is a defined gut community comprising twelve bacterial taxa, labeled KB1, YL2, KB18, YL27, YL31, YL32, YL44, YL45, I46, I48, I49, and YL58 in Figure~\ref{fig:network_case_omm12}.
+OMM12 is a defined gut community comprising twelve bacterial taxa shown as nodes in Figure~\ref{fig:network_case_omm12}.
 The experimental graph is relatively dense and dominated by negative interactions.
 PLNNetwork recovers much of that structure, whereas \texttt{GLMNet(Poisson)} returns a substantially sparser graph with a different balance of edge signs.
 
@@ -518,7 +516,7 @@ When $N/D$ is small, inter-taxon dependence is strong, and counts are overdisper
 When $N/D$ is large or inter-taxon dependence is weak, the extra flexibility of PLN adds variance and computational cost without improving prediction.
 The win-rate pattern is direct: PLN takes 12 of 14 datasets below $N/D = 5$ and zero of the 6 above it, with MAC and overdispersion providing additional explanatory power for the residual cases.
 
-The datasets where PLN shows the strongest gains illustrate the biological context.
+The datasets where PLN shows the strongest gains illustrate the biological environments in which latent dependence modeling is most useful.
 Castro-Nallar~2015 (oral cavity, $N/D = 0.30$, $+27\%$) and Lozupone~HIV ($N/D = 0.89$, $+30\%$) are small clinical studies from body sites and disease states known for tight bacterial co-associations, where the joint latent structure captures signal that independent regressions miss.
 Baker~NASH/obesity ($N/D = 1.16$, $+30\%$) and Ross~obesity ($N/D = 0.51$, $+30\%$) involve metabolically disrupted gut communities where co-abundance patterns among taxa are elevated.
 By contrast, PLN's largest losses occur in large population surveys: MBQC ($N/D = 77.74$, $-28\%$) and MehtaRS~2018 ($N/D = 5.07$, $-25\%$) are high-throughput multi-site collections where samples are abundant relative to taxa and the benefit of modeling joint dependence vanishes.
@@ -530,23 +528,24 @@ PLNNetwork estimates a sparse undirected precision matrix and therefore aligns n
 The host fitness benchmark is the clearest example of this distinction, because its truth labels reflect targeted pairwise effects rather than a single global undirected graph.
 
 Several limitations should be kept in mind.
-The 20 count-prediction datasets are not fully independent: the benchmark includes multiple colorectal cancer cohorts and multiple HMP body-site collections, so the effective number of independent biological comparisons is somewhat less than 20.
-The win-rate pattern is nonetheless consistent across biological contexts, which limits the concern, but the findings should not be interpreted as arising from 20 entirely unrelated experiments.
+The 20 real microbiome count prediction datasets are not fully independent: the benchmark includes multiple colorectal cancer cohorts and multiple HMP body-site collections, so the effective number of independent biological comparisons is somewhat less than 20.
+The win-rate pattern is nonetheless consistent across biological environments, which limits the concern, but the findings should not be interpreted as arising from 20 entirely unrelated experiments.
 The comparison is restricted to the Poisson model family by design; SPIEC-EASI~\citep{Kurtz2015SPIECEASI} and SparCC~\citep{Friedman2012SparCC} operate under compositional log-ratio assumptions that differ fundamentally from the Poisson likelihood, and including them would conflate model family with evaluation protocol.
 The network benchmark uses all five experimental ground-truth datasets with publicly available microbial interaction truth that we are aware of; the scarcity of such data reflects fundamental experimental constraints rather than a selective choice, and the conclusions should be interpreted in light of this limitation.
 Both fitted methods also receive the same log1p-transformed inputs, a design choice that improves comparability but may not be optimal for PLN.
 Finally, the computational profiling is based on a single dataset and single-core execution, so it should be interpreted as a controlled comparison rather than as an exhaustive systems benchmark.
+Although the observed costs are consistent with the expected scaling patterns and with prior reports of PLN runtimes.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
 This study provides a comparative evaluation of joint latent and penalized marginal Poisson models for microbiome count prediction and interaction recovery.
-Across 20 real count datasets and five real interaction-truth benchmarks, neither model class dominates universally.
+Across 20 real count microbiome datasets and five real interaction-truth benchmarks, neither model class dominates universally. % TODO: numbers or letters for the datasets numbers
 Instead, the benchmark identifies the conditions under which each approach is most appropriate.
 For count prediction, PLN is most useful when samples are scarce relative to dimension and counts are strongly overdispersed.
 \texttt{GLMNet(Poisson)} becomes the better practical choice as $N/D$ grows and the data become closer to the Poisson setting.
 For network inference, PLNNetwork is stronger on broad undirected community graphs, whereas \texttt{GLMNet(Poisson)} is better matched to local or directional effects.
-Although PLN is substantially more expensive computationally, its observed costs remain practical on the benchmark sizes studied here.
+Although, PLN is substantially more expensive computationally, its observed costs remain practical on the benchmark sizes studied here.
 These results give researchers concrete guidance for deciding when latent dependence modeling is likely to justify its added complexity and when a simpler penalized marginal model is preferable.
 
 \paragraph{Key findings.}

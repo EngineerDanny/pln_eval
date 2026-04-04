@@ -34,3 +34,4 @@ worker_setup.R
 *.tar
 paper/jmlr/JMLR_SUBMISSION_CHECKLIST.md
 paper/jmlr/TEX_RULES.md
+paper/archive/TEX_RULES.md
