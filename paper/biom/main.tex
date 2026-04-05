@@ -457,8 +457,8 @@ On the three broad edge-recovery datasets, PLNNetwork has the clearer advantage.
 Its mean bootstrap F1 score exceeds that of \texttt{GLMNet(Poisson)} on OMM12 ($0.81 \pm 0.02$ versus $0.37 \pm 0.03$), OMM12 keystone 2023 ($0.62 \pm 0.003$ versus $0.17 \pm 0.01$), and PairInteraX ($0.22 \pm 0.01$ versus $0.07 \pm 0.003$).
 These datasets reward recovery of a global undirected interaction structure, which matches the inductive bias of a sparse latent precision matrix.
 
-The OMM12 example in Figure~\ref{fig:network_case_omm12} illustrates this contrast.
-OMM12 is a defined gut community comprising 12 bacterial taxa shown as nodes in Figure~\ref{fig:network_case_omm12}.
+The OMM12 example in Figure~S1 of the Supplementary Material illustrates this contrast.
+OMM12 is a defined gut community comprising 12 bacterial taxa shown as nodes in Figure~S1.
 The experimental graph is relatively dense and dominated by negative interactions.
 PLNNetwork recovers much of that structure, whereas \texttt{GLMNet(Poisson)} returns a substantially sparser graph with a different balance of edge signs.
 
@@ -470,17 +470,6 @@ The five taxa are \textit{Lactobacillus plantarum} (LP), \textit{Lactobacillus b
 PLNNetwork recovers part of the experimentally supported structure but misses edges involving AO and introduces a positive LP--LB edge that is not present in the truth.
 By contrast, \texttt{GLMNet(Poisson)} closely matches the local negative interaction pattern and misses only one true edge.
 In this setting, the ground truth is driven by targeted pairwise effects rather than by a broad undirected community network, and nodewise Poisson regressions appear better aligned with that local signal.
-
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=0.94\textwidth]{figure5_omm12_network_comparison}
-  \caption{Ground-truth and inferred networks for the OMM12 defined community (12 taxa).
-  Each panel shows the experimental ground truth (left), the PLNNetwork prediction
-  (centre), and the \texttt{GLMNet(Poisson)} prediction (right).
-  Node labels are strain codes: KB1 (\textit{E.\ faecalis}), YL2 (\textit{B.\ animalis}), KB18 (\textit{A.\ muris}), YL27 (\textit{M.\ intestinale}), YL31 (\textit{F.\ plautii}), YL32 (\textit{E.\ clostridioformis}), YL44 (\textit{A.\ muciniphila}), YL45 (\textit{T.\ muris}), I46 (\textit{C.\ innocuum}), I48 (\textit{B.\ caecimuris}), I49 (\textit{L.\ reuteri}), YL58 (\textit{B.\ coccoides}).
-  Edge colour indicates interaction sign (blue: positive, orange: negative).}
-  \label{fig:network_case_omm12}
-\end{figure}
 
 \subsection{Computational scaling}
 \label{subsec:computational-scaling}
