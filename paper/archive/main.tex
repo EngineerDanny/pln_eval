@@ -43,13 +43,13 @@
 \vspace{0.8em}
 \begin{abstract}
 Multivariate count models are often justified by their ability to capture latent dependence, but researchers receive little guidance on when this added structure improves on simpler penalized marginal Poisson regression.
-We study this question using exclusively real microbiome data under a unified held-out evaluation framework.
-For count prediction, we compare PLN and \texttt{GLMNet(Poisson)} on 20 real microbiome datasets spanning $N = 32$--$18{,}270$ and $D = 24$--$257$, using held-out Poisson deviance under Leave-One-Taxon-Out cross-validation rather than synthetic or in-sample criteria.
-For network inference, we compare PLNNetwork and \texttt{GLMNet(Poisson)} neighbourhood selection on all five publicly available real datasets with experimentally validated microbial interaction truth.
-PLN outperforms \texttt{GLMNet(Poisson)} on most count-prediction datasets, with gains up to 38\%.
-The primary predictor of the winner is the sample-to-taxon ratio $N/D$, with MAC as the strongest secondary signal and overdispersion as an additional predictor.
-PLNNetwork performs best on broad undirected interaction benchmarks, whereas \texttt{GLMNet(Poisson)} is better aligned with local or directional effects.
-Taken together, these results provide practical guidance for choosing between latent multivariate count models and penalized Poisson regression in biological count prediction and interaction recovery.
+We study this question using real microbiome data under a unified held-out evaluation framework.
+For count prediction, we compare PLN and GLMNet(Poisson) on 20 datasets spanning 32 to 18,270 samples and 24 to 257 taxa, using held-out Poisson deviance under leave-one-taxon-out prediction with 3-fold sample cross-validation rather than synthetic or in-sample criteria.
+For network inference, we compare PLNNetwork and GLMNet(Poisson) neighborhood selection on five publicly available datasets with experimentally validated microbial interaction truth.
+PLN outperforms GLMNet(Poisson) on most count-prediction datasets, with gains up to 38 percent.
+The primary predictor of the winner is the sample-to-taxon ratio, with mean absolute correlation as the strongest secondary signal and overdispersion as an additional predictor.
+PLNNetwork performs best on broad undirected interaction benchmarks, whereas GLMNet(Poisson) is better aligned with local or directional effects.
+Taken together, these results provide guidance for choosing between latent multivariate count models and penalized Poisson regression in biological count prediction and interaction recovery.
 \end{abstract}
 
 \noindent\textbf{Keywords:} Benchmarking; microbiome; network inference; penalized regression; Poisson log-normal.
