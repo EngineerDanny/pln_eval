@@ -428,7 +428,7 @@ This aligns with the structure of the PLN model.
 Its latent Gaussian layer is most useful when counts depart substantially from the Poisson assumption and when joint dependence among taxa carries predictive signal.
 
 Table~S4 reports the complete retained 20-dataset count-prediction benchmark and highlights the strongest dataset-level contrasts in both directions.
-The table includes standard errors, paired $p$-values from a Wilcoxon signed-rank test, and Benjamini--Hochberg adjusted $q$-values to account for multiple testing across the 20 datasets.
+The table includes standard errors computed over LOTO-CV scores, paired $p$-values from LOTO-CV score differences, and Benjamini--Hochberg adjusted $q$-values across the 20 datasets.
 
 
 \begin{figure}[pos=htbp]
@@ -438,10 +438,10 @@ The table includes standard errors, paired $p$-values from a Wilcoxon signed-ran
   vs.\ GLMNet(Poisson) comparison.
   Top: datasets where PLN achieves lower held-out Poisson deviance.
   Bottom: datasets where GLMNet(Poisson) achieves lower held-out Poisson deviance.
-  Each panel reports held-out Poisson deviance (mean $\pm$ SE across three outer
-  cross-validation folds) for PLN, GLMNet(Poisson), and the featureless baseline.
-  The annotated difference and $p$-value are from the paired comparison of PLN
-  and GLMNet(Poisson) across folds.}
+  Each panel reports held-out Poisson deviance (mean $\pm$ SE across LOTO-CV
+  scores) for PLN, GLMNet(Poisson), and the featureless baseline.
+  The annotated difference and descriptive $p$-value are from paired LOTO-CV
+  deviance differences between PLN and GLMNet(Poisson).}
   \label{fig:count_pred_case_study}
 \end{figure}
 
