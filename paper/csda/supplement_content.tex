@@ -1,27 +1,3 @@
-\documentclass[11pt]{article}
-\usepackage[margin=1in]{geometry}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{amsmath,amssymb}
-\usepackage{amsthm}
-\usepackage{booktabs}
-\usepackage[table]{xcolor}
-\usepackage{array}
-\usepackage{longtable}
-\usepackage{graphicx}
-\usepackage{natbib}
-\usepackage{url}
-
-\newtheorem{proposition}{Proposition}
-
-\title{Supplementary Material for\\
-Understanding When Poisson Log-Normal Models Outperform Penalized Poisson Regression for Microbiome Count Data}
-\author{Daniel Agyapong, Julien Chiquet, Jane Marks, and Toby Dylan Hocking}
-\date{}
-
-\begin{document}
-\maketitle
-
 \section*{Supplementary Material}
 
 % ============================================================
@@ -123,7 +99,7 @@ The population quantity that $\widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathr
   \mathbb{E}\!\left[\,\mathcal{D}\!\left(Y_{\mathcal{I}_k j},\; \hat{\mu}^{(-k,j)}_{\mathcal{A}}\right)\right],
 \]
 where the expectation is over new realisations of the count matrix together with the random choice of target taxon $j$ and sample fold $k$.
-Under \emph{taxon exchangeability}, the assumption that the $D$ columns of $Y$ are exchangeable draws from the same marginal distribution, $\widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}$ is an approximately unbiased estimator of $R(\mathcal{A})$, and $\mathcal{A}$ is selected by minimising this estimate.
+Under \emph{taxon exchangeability} --- the assumption that the $D$ columns of $Y$ are exchangeable draws from the same marginal distribution --- $\widehat{\mathcal{D}}_{\mathrm{LOTO}\text{-}\mathrm{CV}}$ is an approximately unbiased estimator of $R(\mathcal{A})$, and $\mathcal{A}$ is selected by minimising this estimate.
 
 In real microbiome data, taxa are not exchangeable: they span different phyla, have different mean abundances, and exhibit different sparsity profiles.
 Taxon exchangeability is therefore an idealisation.
@@ -239,16 +215,6 @@ HMP16S v13 & 18.30 & 0.058 & 0.3307 $\pm$ 0.0180 & 0.3347 $\pm$ 0.0191 & $-$1.2\
 \normalsize
 
 % ============================================================
-\section*{Figure S1. OMM12 network comparison}
-\begin{center}
-\includegraphics[width=\textwidth]{figure5_omm12_network_comparison}
-\end{center}
-Ground-truth and inferred networks for the OMM12 defined community (12 taxa).
-Each panel shows the experimental ground truth (left), the PLNNetwork prediction (centre), and the \texttt{GLMNet(Poisson)} prediction (right).
-Node labels are strain codes: KB1 (\textit{E.\ faecalis}), YL2 (\textit{B.\ animalis}), KB18 (\textit{A.\ muris}), YL27 (\textit{M.\ intestinale}), YL31 (\textit{F.\ plautii}), YL32 (\textit{E.\ clostridioformis}), YL44 (\textit{A.\ muciniphila}), YL45 (\textit{T.\ muris}), I46 (\textit{C.\ innocuum}), I48 (\textit{B.\ caecimuris}), I49 (\textit{L.\ reuteri}), YL58 (\textit{B.\ coccoides}).
-Edge colour indicates interaction sign (blue: positive, orange: negative).
-
-% ============================================================
 \section*{Figure S2. Host fitness 2018 network comparison}
 \begin{center}
 \includegraphics[width=\textwidth]{figureS1_host_fitness_network_comparison}
@@ -258,8 +224,3 @@ Each panel shows the experimental ground truth (left), the PLNNetwork prediction
 Node labels are species abbreviations: LP (\textit{Lactobacillus plantarum}), LB (\textit{Lactobacillus brevis}), AP (\textit{Acetobacter pasteurianus}), AT (\textit{Acetobacter tropicalis}), AO (\textit{Acetobacter orientalis}).
 Edge colour indicates interaction sign (blue: positive, orange: negative).
 Ground-truth edges are derived from pair-vs-singleton colony-forming unit shifts~\citep{Gould2018HostFitness}.
-
-\bibliographystyle{biom}
-\bibliography{references}
-
-\end{document}
