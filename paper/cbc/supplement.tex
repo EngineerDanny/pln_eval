@@ -1,0 +1,59 @@
+\documentclass[preprint,review,12pt,authoryear]{elsarticle}
+
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsthm}
+\newtheorem{proposition}{Proposition}[section]
+\usepackage{url}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage[table]{xcolor}
+\usepackage{textcomp}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, decorations.pathreplacing}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\journal{Computational Biology and Chemistry}
+\graphicspath{{figures/}}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{Supplementary Material for ``Understanding When Poisson Log-Normal Models Outperform Penalized Poisson Regression for Microbiome Count Data''}
+
+\author[aff1]{Daniel Agyapong\corref{cor1}}
+\ead{da2343@nau.edu}
+\author[aff2]{Julien Chiquet}
+\author[aff3]{Jane Marks}
+\author[aff4]{Toby Dylan Hocking}
+
+\cortext[cor1]{Corresponding author}
+
+\affiliation[aff1]{organization={School of Informatics, Computing, and Cyber Systems, Northern Arizona University},
+                  city={Flagstaff},
+                  state={Arizona},
+                  country={U.S.A.}}
+\affiliation[aff2]{organization={UMR MIA Paris-Saclay, Universit\'{e} Paris-Saclay, AgroParisTech, INRAE},
+                  city={Palaiseau},
+                  country={France}}
+\affiliation[aff3]{organization={Department of Biological Sciences, Northern Arizona University},
+                  city={Flagstaff},
+                  state={Arizona},
+                  country={U.S.A.}}
+\affiliation[aff4]{organization={D\'{e}partement d'informatique, Universit\'{e} de Sherbrooke},
+                  city={Sherbrooke},
+                  state={Qu\'{e}bec},
+                  country={Canada}}
+
+\end{frontmatter}
+
+\input{supplement_content}
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{references}
+
+\end{document}
