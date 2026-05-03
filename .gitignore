@@ -1,4 +1,4 @@
-*.png
+# *.png
 *.csv
 *.DS_Store
 *.RData
