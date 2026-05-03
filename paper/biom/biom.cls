@@ -1945,8 +1945,6 @@ to \linewidth\bgroup\@eqnsel\hskip\@centering$\displaystyle\tabskip\z@
 \frenchspacing
 %%%%
 \usepackage{theorem}
-\newcounter{theorem}
-\renewcommand\thetheorem{\arbic{theorem}}
 \newtheorem{theorem}{Theorem}%[theorem]
 %\newtheorem{algorithm}{Algorithm}%[theorem]
 \newtheorem{corollary}{Corollary}%[section]%[theorem]

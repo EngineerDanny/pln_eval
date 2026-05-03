@@ -1,4 +1,4 @@
-*.png
+# *.png
 *.csv
 *.DS_Store
 *.RData
@@ -32,5 +32,7 @@ worker_setup.R
 *.zip
 *.tar.gz
 *.tar
+*.fff
 paper/jmlr/JMLR_SUBMISSION_CHECKLIST.md
 paper/jmlr/TEX_RULES.md
+paper/archive/TEX_RULES.md

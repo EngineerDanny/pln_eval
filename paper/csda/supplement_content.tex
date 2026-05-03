@@ -109,7 +109,7 @@ However, any bias this introduces applies equally to all algorithms being compar
 
 For computational tractability, the paper uses $K = 3$ outer folds over samples.
 For each target taxon $j$, the algorithm is trained on samples outside $\mathcal{I}_k$ and evaluated on held-out samples in $\mathcal{I}_k$.
-This produces one held-out score for each target-taxon and sample-fold pair.
+This produces one LOTO-CV score for each held-out taxon in each outer sample fold.
 The reported benchmark score is the average of these $D \times K$ scores.
 
 \clearpage
@@ -172,8 +172,8 @@ Host fitness 2018 & \citealt{Gould2018HostFitness} & \textit{Drosophila} gut com
 \section*{Table S4. 20-dataset count-prediction results}
 Datasets are sorted by $N/D$.
 Blue rows are the four strongest PLN-favorable contrasts; orange rows are the four strongest GLMNet-favorable contrasts.
-GLMNet and PLN entries report held-out Poisson deviance as mean $\pm$ SE.
-$p$-values are from a paired Wilcoxon signed-rank test on per-fold deviance differences; $q$-values are Benjamini--Hochberg adjusted.
+GLMNet and PLN entries report held-out Poisson deviance as mean $\pm$ SE over LOTO-CV scores.
+$p$-values are from paired $t$-tests on LOTO-CV score differences; $q$-values are Benjamini--Hochberg adjusted across the 20 datasets.
 $^\dagger$American Gut~1 is an outlier: GLMNet wins despite low $N/D$ and relatively high MAC.
 \footnotesize
 \setlength{\tabcolsep}{2.7pt}
