@@ -1,0 +1,212 @@
+\documentclass[USenglish]{article}	
+% for 2-column layout use \documentclass[USenglish,twocolumn]{article}
+
+\usepackage[utf8]{inputenc}				%(only for the pdftex engine)
+%\RequirePackage[no-math]{fontspec}[2017/03/31]%(only for the luatex or the xetex engine)
+\usepackage[big,online]{dgruyter}	%values: small,big | online,print,work
+\usepackage{lmodern} 
+\usepackage{microtype}
+\usepackage[numbers,square,sort&compress]{natbib}
+
+
+% New theorem-like environments will be introduced by using the commands \theoremstyle and \newtheorem.
+% Please note that the environments proof and definition are already defined within dgryuter.sty.
+\theoremstyle{dgthm}
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{assertion}{Assertion}
+\newtheorem{result}{Result}
+\newtheorem{conclusion}{Conclusion}
+
+\theoremstyle{dgdef}
+\newtheorem{definition}{Definition}
+\newtheorem{example}{Example}
+\newtheorem{remark}{Remark}
+
+\begin{document}
+
+	
+%%%--------------------------------------------%%%
+	\articletype{Research Article}
+	\received{Month	DD, YYYY}
+	\revised{Month	DD, YYYY}
+  \accepted{Month	DD, YYYY}
+  \journalname{De~Gruyter~Journal}
+  \journalyear{YYYY}
+  \journalvolume{XX}
+  \journalissue{X}
+  \startpage{1}
+  \aop
+  \DOI{10.1515/sample-YYYY-XXXX}
+%%%--------------------------------------------%%%
+
+\title{Insert your title here}
+\runningtitle{Short title}
+%\subtitle{Insert subtitle if needed}
+
+\author*[1]{First Author}
+%\ use * to mark the author as the corresponding author
+\author[2]{Second Author}
+\author[2]{Third Author} 
+\runningauthor{F.~Author et al.}
+\affil[1]{\protect\raggedright 
+Institution, Department, City, Country of first author, e-mail: author\_one@xx.yz}
+\affil[2]{\protect\raggedright 
+Institution, Department, City, Country of second author and third author, e-mail: author\_two@xx.yz, author\_three@xx.yz}
+	
+%\communicated{...}
+%\dedication{...}
+	
+\abstract{Please insert your abstract here (approx. 200 words). Remember that online systems rely heavily on the content of titles and abstracts to identify articles in electronic bibliographic databases and search engines. Abstracts give a clear indication of the nature and the range of the results in the paper.}
+
+\keywords{Please insert your keywords here, separated by commas.}
+
+\maketitle
+	
+	
+\section{Introduction} 
+
+Found a journal in which you would like to publish? Then we suggest going to the journal’s website and reading the information on the submission form. Please follow our specifications for guidance with creating and formatting your manuscript. In each journal’s supplementary pages, you will find the current impact factor and additional information about the journal.
+
+Many journals accept manuscript submissions through the online systems ScholarOne Manuscripts and Editorial Manager. This saves you time and speeds up the publication process. Journals without a submission system of this type can be contacted via the relevant product page.
+
+More information can be found at https://www.degruyter.com/page/authors.
+
+\subsection{General information} 
+Manuscripts should be written in clear and concise English. Please have your text proofread by an English native speaker before you submit it for consideration. At the proof stage, only minor changes and corrections are allowed.
+
+The \textbf{Introduction} to the manuscript should contain a clear definition of the problem being considered. Wherever possible theoretical results should be cited. The use of SI units is required.
+
+\section{Layout of manuscripts} 
+\subsection{Equations and theorem-like environments}	
+\textbf{Equations} should be well-aligned and should not be crowded \eqref{eq:1}. Only Latin and Greek alphabets are to be used. Complicated superscripts and subscripts should be avoided by introducing new symbols. Avoid repetition of a complicated expression by representing it with a symbol.
+
+% unnumbered equation if not cited in the text
+\begin{equation*}
+k_{n+1} = n^2 + k_n^2 - k_{n-1}
+\end{equation*}
+
+% numbered equation if cited in the text
+\begin{equation}
+f(x)=(x+a)(x+b)
+\label{eq:1}
+\end{equation}
+
+New theorem-like environments will be introduced by using the commands \verb|\theoremstyle| and \verb|\newtheorem|.
+Please note that the environments proof and definition are already defined within dgryuter.sty.
+
+\begin{definition}
+This is a definition environment.
+\end{definition}
+	
+\begin{theorem}
+This is a theorem environment.
+\end{theorem}
+	
+\begin{proof}
+This is a proof environment.
+\end{proof}
+
+\subsection{Figures and Tables}
+The number of \textbf{Figures} should be limited to the absolute minimum. Images must be of good contrast and sufficiently high resolution for reproduction (minimum 600 dpi). Lettering of all figures should be uniform in style. Authors are encouraged to submit illustrations in color if necessary for their scientific content. Publication of color figures is provided free of charge both in online and print editions.
+
+When drawing bar graphs, use patterning/color instead of grey scales (faint shading may be lost upon reproduction).
+Each figure should be uploaded separately as .jpg-, .eps-, .pdf- or .tiff-file. The legends for the figures must be concise and self-explanatory. The key to the symbols in the figures should be included in the figure where possible. Otherwise, they should be included in the legend.
+
+A concise, self-explanatory caption should appear below \textbf{Figures and Tables}. Each table should be placed on a separate manuscript page including its caption. All figures and tables should be numbered and referred to in your document as Table 1 or Figure 1 (e.g. “See Table \ref{tab:Table1}”, “As Figure 2 indicates” etc.).
+
+\begin{table} [!ht]
+\caption{Sample table with header.}
+\begin{tabular}{rrl}
+Table head 1 	& Table head 2 	& Table head 3 	\\ \midrule
+10 						& 40 						& text A 				\\
+20						& 50						& text B 				\\
+30						& 60 						& text C 				\\
+\end{tabular}
+\label{tab:Table1}
+\end{table}
+
+\begin{table} [!ht]
+\caption{Sample table without header.}
+\begin{tabular}{rrrr}
+\starttabularbody %Table starts with the body
+First column 	& Second column 	& Third column 	& Fourth column	\\
+1 						& 2 							& 3 						& 4							\\
+4 						& 5 							& 6 						& 7 						\\
+8 						& 9 							& 11 						& 12 						\\
+\end{tabular}
+\label{tab:Table2}
+\end{table}
+
+\subsection{References}
+Please refer to the journal's website for more information on the reference style. 
+Sample references can be found here: \cite{carbonaro:2008} and \cite{farley:2010,antonyan,chen:2013,hofmann:2013,yong:2001}. All references should be collected at the end of the paper. 
+
+\section{Manuscript processing} 
+
+The \textbf{evaluation process} varies from journal to journal.
+
+\begin{itemize}
+    \item Single-blind review: the reviewers remain anonymous to the authors.
+    \item Double-blind review: the reviewers do not know who the authors are, nor do the authors know who has evaluated their manuscript.
+\end{itemize}
+Typically, at least two independent experts are invited to review a manuscript’s content. The manuscript is then either accepted, rejected, or returned for revision based on their evaluation.
+
+With many journals, you can propose reviewers who come from outside of your closest areas of academia. It is at the editors’ discretion whether to accept these proposals.
+
+
+\textbf{Galley proofs}: Before your contribution is published, you will receive a proof of the article to proofread. At this point in the publication process, there must be no more changes made to the content: only minor corrections in form and phrasing are possible.	
+		
+
+
+\begin{acknowledgement}
+  Please insert acknowledgments of the assistance of colleagues or similar notes of appreciation here.
+\end{acknowledgement}
+
+\begin{funding}
+  Please insert information concerning research grant support here (institution and grant number). Please provide for each funder the funder’s DOI according to https://doi.crossref.org/funderNames?mode=list.
+\end{funding}
+%\bibliographystyle{...}
+%\bibliography{...}
+
+
+
+\begin{thebibliography}{9}
+%Please refer to the journal's website for the corresponding reference style.
+
+% -- Articles in journals    -- %
+\bibitem{carbonaro:2008}
+A. Carbonaro, G. Metafune and C. Spina, Parabolic Schrödinger operators, \emph{J. Math. Anal. Appl.} \textbf{343} (2008), 965–974.
+
+% -- Articles ahead of print -- %
+\bibitem{farley:2010}
+D. Farley and L. Sabalka, Presentations of graph braid groups, \emph{Forum Math.} (2010), DOI: 10.1515/form.2011.086.
+
+% -- Accepted articles       -- %
+\bibitem{antonyan}
+S. A. Antonyan and T. Dobrowolski, Locally contractible coset spaces, \emph{Forum Math.}, to appear.
+
+% -- Preprints               -- %
+\bibitem{chen:2013}
+Z.-Q. Chen and L. Wang, Uniqueness of stable processes with drift, preprint (2013), http://arxiv.org/pdf/1309.6414v1.
+
+% -- Books and Monographs    -- %
+\bibitem{hofmann:2013}
+K. H. Hofmann and S. A. Morris, \emph{The Structure of Compact Groups}, 3rd ed., De Gruyter Stud. Math. 25, De Gruyter, Berlin, 2013.
+
+% -- Contributions           -- %
+\bibitem{yong:2001}
+W.-A. Yong, Basic aspects of hyperbolic relaxation systems, in: \emph{Advances in the Theory of Shock Waves, Progr. Nonlinear Differential Equations Appl. 47}, Birkhäuser, Boston (2001), 259–305.
+
+% -- Thesis           			-- %
+\bibitem{king:1995}
+J. D. King, \emph{Thesis title}, Ph.D. thesis, University of Cambridge, 1995.
+
+% -- Proceedings       			-- %
+\bibitem{hay:2016}
+B. Hay, Drone tourism: a study of the current and potential use of drones in hospitality and tourism, in: \emph{CAUTHE 2016: the changing landscape of tourism and hospitality: the impact of emerging markets and emerging destinations}, Blue Mountains, Sydney, 8-11 February, 2016, pp. 49-68. 
+
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,8 @@
+;; $Id: .xdy,v 1.0 2012/12/05 11:23:17 dgruyter Exp $ -*- Lisp -*-
+;; ------------------------------------------------------------
+;;
+;; Xindy-Style, for index processing according to the degruyter-style.
+;;
+(markup-locclass-list :open "\enskip " :sep ", ")
+(markup-indexentry :open "~n \item --\enskip")
+;;

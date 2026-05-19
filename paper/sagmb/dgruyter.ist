@@ -1,0 +1,29 @@
+%%
+%% This is file `dgruyter.ist',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% dgruyter.dtx  (with options: `ist')
+%% -----------------------------------------------------------------
+%% Author:     le-tex publishing services
+%% Maintainer: le-tex publishing services
+%% 
+%% This file is part of the dgruyter package for preparing
+%% books for Walter de Gruyter GmbH.
+%% 
+%%       Copyright (C) 2015, 2016, 2017 Walter de Gruyter GmbH
+%% -----------------------------------------------------------------
+headings_flag 0
+heading_prefix "{\\bfseries "
+heading_suffix "}\\nopagebreak"
+item_01 "\\nopagebreak\n \\subitem "
+item_12 "\\nopagebreak\n \\subsubitem "
+item_x1 "\\nopagebreak\n \\subitem "
+item_x2 "\\nopagebreak\n \\subsubitem "
+delim_0 "\\enskip "
+delim_1 "\\enskip "
+delim_2 "\\enskip "
+%% 
+%%
+%% End of file `dgruyter.ist'.
