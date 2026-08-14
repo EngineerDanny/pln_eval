@@ -12,12 +12,12 @@ The main finding is that **N/D ratio** (samples-to-taxa) is the strongest predic
 
 ## Paper
 
-The manuscript is in `paper/archive/`.
+The SAGMB manuscript is in `paper/sagmb/`.
 Build with:
 
 ```bash
 module load texlive/20250308
-cd paper/archive
+cd paper/sagmb
 pdflatex main.tex
 bibtex main
 pdflatex main.tex
@@ -31,7 +31,7 @@ pln_eval/
 ├── bmr/                  # Benchmark result (.RData) files, one per dataset
 ├── out/                  # Computed outputs (CSV tables, metrics)
 ├── paper/
-│   └── archive/          # LaTeX source for the arXiv submission
+│   └── sagmb/            # LaTeX source for the SAGMB submission
 │       ├── main.tex
 │       ├── supplement_content.tex
 │       └── references.bib
@@ -62,6 +62,25 @@ The benchmark spans human gut, oral, soil, and other environments from publicly 
 - GLMNet(Poisson) is preferred as N/D grows
 - For network inference, PLNNetwork is stronger on broad undirected community graphs; GLMNet(Poisson) is better matched to local or directional effects
 - PLN is substantially more expensive computationally but remains practical at benchmark sizes
+
+## Revision Analysis Plan
+
+Time is limited, so prioritize analyses that directly address the reviewer concerns.
+
+1. Add a CLR + GLMNet sensitivity analysis for count prediction.
+   This provides a representative log ratio baseline without turning the paper into a full compositional methods benchmark.
+
+2. Add a formal predictor analysis for PLN wins.
+   Model the winner using `log(N/D)`, MAC, and overdispersion, using a small sample appropriate approach such as logistic regression, penalized logistic regression, or leave one out logistic regression.
+
+3. Add an empirical threshold analysis for `N/D`.
+   Estimate the split using a decision stump or ROC threshold, and present the `N/D < 5` rule as an empirical pattern from this benchmark rather than as a theoretical cutoff.
+
+4. Add leave one domain out and leave one dataset out sensitivity checks.
+   Use these checks to test whether the `N/D` pattern is stable after removing related dataset groups or individual datasets.
+
+5. Add SPIEC-EASI as a network sensitivity analysis if time permits.
+   This gives one representative compositional network method for the five experimental truth benchmarks.
 
 ## Requirements
 
