@@ -13,6 +13,7 @@ environment.yml
 worker_setup.R
 .Renviron
 .Rhistory
+AGENTS.md
 *data
 *.log
 *.out

@@ -116,7 +116,8 @@ Table~\ref{tab:related_work} summarizes how prior studies approach evaluation.
 \paragraph{Count data properties of microbiome surveys.}
 Microbiome surveys via 16S rRNA amplicon sequencing or shotgun metagenomics produce read-count tables of non-negative integers whose observed values depend on the total number of reads sequenced per sample~\citep{HMP2012, Thompson2017, Xia2023}.
 Three properties of these counts make standard Gaussian regression inappropriate, and the latter two also show that plain Poisson regression is insufficient, motivating latent-variable extensions such as the Poisson Log-Normal.
-First, \emph{compositionality}: total read depth (library size) varies across samples by orders of magnitude and carries no biological information; models that ignore this offset confound technical sequencing variation with biological signal~\citep{mcmurdie2014waste}.
+First, \emph{compositionality}: total read depth (library size) varies across samples by orders of magnitude and carries no biological information; ignoring this variation can confound technical sequencing effects with biological signal~\citep{mcmurdie2014waste}.
+Adjustment for library size addresses part of this problem, although direct modeling of the constraint from fixed totals requires a compositional formulation because the observed counts still carry only relative information about the underlying community composition.
 Second, \emph{overdispersion}: counts exhibit variance far exceeding the Poisson mean, as genuine biological variation across individuals and environments inflates count variance beyond what the Poisson distribution allows~\citep{zhang2017nbmm}. 
 Third, \emph{excess zeros}: the majority of entries in the count matrix are zero not because taxa are truly absent but because rare taxa fall below the sequencing detection threshold, with data sparsity commonly exceeding 70\%~\citep{Batardiere2025ZIPLN, Kodikara2022}.
 Gaussian regression treats counts as unbounded continuous quantities.
@@ -126,7 +127,7 @@ Ad hoc transformations such as $\log(1+x)$ can improve numerical behavior and st
 The generalized linear model with Poisson or Negative Binomial likelihood is the natural framework for overdispersed count data~\citep{zhang2017nbmm}.
 For univariate differential abundance testing, Negative Binomial models are widely used, as implemented in DESeq2~\citep{Love2014DESeq2} and edgeR~\citep{Robinson2010edgeR}.
 These are, however, marginal models: each taxon is fitted independently, so the joint dependence structure across taxa is not represented.
-The Poisson Log-Normal (PLN) model, first introduced by Aitchison and Ho~\citep{aitchison1989multivariate}, addresses this by placing a multivariate Gaussian distribution on the log-intensities, capturing correlations between different taxa through a shared latent covariance matrix while still respecting the discrete, non-negative nature of the data and accommodating library-size offsets.
+The Poisson Log-Normal (PLN) model, first introduced by Aitchison and Ho~\citep{aitchison1989multivariate}, addresses this by placing a multivariate Gaussian distribution on the log-intensities, capturing correlations between different taxa through a shared latent covariance matrix while still respecting the discrete, non-negative nature of the data and allowing library-size offsets when specified.
 This makes PLN a single coherent framework for prediction, ordination, clustering, and network inference from count data~\citep{Chiquet2021, SUBEDI20251255}.
 
 \paragraph{Prediction and representation learning.}
@@ -244,9 +245,13 @@ Dataset metadata are provided in Table~S3 of the Supplementary Material.
 \label{subsec:algorithms}
 
 We used different methods for count prediction and network inference.
-Let $Y_{ij}$ denote the observed count for sample $i$ and taxon $j$, and let $s_i$ denote the sequencing-depth offset for sample $i$.
+Let $Y_{ij}$ denote the observed abundance for sample $i$ and taxon $j$ after the shared preprocessing step described below.
 For count prediction, we compared a featureless baseline, \texttt{GLMNet(Poisson)}, and PLN.
 For network inference, we compared \texttt{GLMNet(Poisson)} neighbourhood selection, and PLNNetwork.
+For both model classes, the other taxa enter the prediction or network procedure through a $\log(1+Y)$ transformation.
+This transformation is commonly used in microbiome count analyses to reduce the influence of taxa with high counts, stabilize sparse measurements, and dampen variation driven by library size~\citep{booeshaghi2021log1p,doi:10.1128/mSystems.00016-19}.
+We use it as a shared preprocessing step so that the comparison focuses on model structure under a common transformation of the count table.
+We treat this transformation as preprocessing only; it lacks the simplex constraint used in compositional models and leaves absolute abundances unidentified.
 
 For count prediction, the featureless baseline predicts each target taxon by the training-set mean
 \[
@@ -262,7 +267,7 @@ For count prediction, we model
 \[
 Y_{ij} \mid Y_{i,-j} \sim \mathrm{Poisson}(\mu_{ij}),
 \qquad
-\log \mu_{ij} = \log s_i + \beta_{0j} + \sum_{k \neq j} \beta_{jk}\,\log(1 + Y_{ik}),
+\log \mu_{ij} = \beta_{0j} + \sum_{k \neq j} \beta_{jk}\,\log(1 + Y_{ik}),
 \]
 with coefficients estimated by minimizing
 \[
@@ -315,6 +320,13 @@ For count prediction, we used a leave-one-taxon-out prediction protocol combined
 Each taxon is treated in turn as the prediction target, the remaining taxa serve as predictors, and predictive performance is evaluated on held-out samples.
 The resulting held-out scores are then averaged across target taxa and sample folds.
 The inner CV used 3 folds for hyperparameter selection.
+The LOTO protocol is best understood as a conditional count prediction task, with biological interaction assessed separately in the network benchmarks.
+Because microbiome abundance profiles are compositional, the other taxa may contain indirect information about the held-out taxon through abundance patterns within each sample.
+The benchmark supplies only the abundance profiles of the other taxa, without separate metadata on sequencing depth, offsets for sample totals, or a reconstruction rule based on fixed totals.
+The held-out taxon is therefore unavailable as a deterministic quantity computed by subtracting the other taxa from the sample total.
+Both methods use the same information: the observed abundances of the other taxa.
+\texttt{GLMNet(Poisson)} uses these taxa as explicit predictors, whereas PLN uses them through conditional prediction under the fitted joint latent model.
+We interpret lower held-out deviance as better conditional count prediction under this protocol, while causal ecological structure remains outside the scope of this prediction score.
 The primary metric is mean held-out Poisson deviance, defined as
 \[
   \mathcal{D}(y, \hat\mu) = \frac{2}{m}\sum_{i=1}^{m} \left( y_i \log\frac{y_i}{\hat\mu_i} - (y_i - \hat\mu_i) \right),
@@ -541,9 +553,15 @@ The host fitness benchmark is the clearest example of this distinction, because 
 Several limitations should be kept in mind.
 The 20 real microbiome count prediction datasets are not fully independent: the benchmark includes multiple colorectal cancer cohorts and multiple HMP body-site collections, so the effective number of independent biological comparisons is somewhat less than 20.
 The win-rate pattern is nonetheless consistent across biological environments, which limits the concern, but the findings should not be interpreted as arising from 20 entirely unrelated experiments.
+The results should also be interpreted in light of the compositional nature of sequencing data.
+Both PLN and \texttt{GLMNet(Poisson)} are fitted using the same abundance inputs after log transformation, which keeps the comparison focused on model structure.
+This shared preprocessing falls short of a full representation of the constraint from fixed totals induced by sequencing and leaves each sample outside an explicit relative abundance model constrained to sum to one.
+Consequently, the fitted covariance, regression, and network parameters have a predictive interpretation, with direct interpretations of absolute abundance and causal ecology requiring additional assumptions.
+The held-out deviance results quantify conditional count prediction under the specified Poisson family models with shared abundance inputs after log transformation.
+This distinction is important because compositional constraints can induce negative dependence and apparent associations even when absolute abundances are independent.
 The comparison is restricted to the Poisson model family by design; SPIEC-EASI~\citep{Kurtz2015SPIECEASI} and SparCC~\citep{Friedman2012SparCC} operate under compositional log-ratio assumptions that differ fundamentally from the Poisson likelihood, and including them would conflate model family with evaluation protocol.
 The network benchmark uses all five experimental ground-truth datasets with publicly available microbial interaction truth that we are aware of; the scarcity of such data reflects fundamental experimental constraints rather than a selective choice, and the conclusions should be interpreted in light of this limitation.
-Both fitted methods also receive the same log1p-transformed inputs, a design choice that improves comparability but may not be optimal for PLN.
+Both fitted methods also receive the same log1p-transformed inputs, a design choice grounded in common microbiome preprocessing practice that improves comparability but may not be optimal for PLN and does not fully resolve compositionality.
 Finally, the computational profiling is based on a single dataset and single-core execution, so it should be interpreted as a controlled comparison rather than as an exhaustive systems benchmark, although the observed costs are consistent with the expected scaling patterns and with prior reports of PLN runtimes.
 
 \section{Conclusion}
