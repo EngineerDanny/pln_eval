@@ -28,7 +28,7 @@ compute_overdispersion <- function(counts) {
   round(mean(vars[keep] / means[keep]), 2)
 }
 
-# 30 datasets (4 removed: AsnicarF, PetersBA, nash_chan, MehtaRS_2018)
+# Datasets retained in the benchmark metadata.
 dataset_paths <- list(
   "20170526.Castro-NallarE_2015.metaphlan_bugs_list.oralcavity_genus" =
     file.path(data_dir, "genus/curated_metagenomic_data/20170526.Castro-NallarE_2015.metaphlan_bugs_list.oralcavity_genus.tsv.gz"),
@@ -52,6 +52,8 @@ dataset_paths <- list(
     file.path(data_dir, "genus/curated_metagenomic_data/20180425.KarlssonFH_2013.metaphlan_bugs_list.stool_genus.tsv.gz"),
   "nash_ob_baker_family" =
     file.path(data_dir, "family/microbiomehd/nash_ob_baker_family.tsv.gz"),
+  "nash_chan_family" =
+    file.path(data_dir, "family/microbiomehd/nash_chan_family.tsv.gz"),
   "crc_zhao_genus" =
     file.path(data_dir, "genus/microbiomehd/crc_zhao_genus.tsv.gz"),
   "BertuzziAS_2018_genus" =
@@ -78,6 +80,8 @@ dataset_paths <- list(
     file.path(data_dir, "family/microbiomehd/t1d_alkanani_family.tsv.gz"),
   "cdi_schubert_family" =
     file.path(data_dir, "family/microbiomehd/cdi_schubert_family.tsv.gz"),
+  "2021-03-31.MehtaRS_2018.relative_abundance_genus" =
+    file.path(data_dir, "genus/curated_metagenomic_data/2021-03-31.MehtaRS_2018.relative_abundance_genus.tsv.gz"),
   "crc_baxter" =
     file.path(data_dir, "family/microbiomehd/crc_baxter_family.tsv.gz"),
   "2021-03-31.ShaoY_2019.relative_abundance_genus" =

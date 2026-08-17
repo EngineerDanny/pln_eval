@@ -4,7 +4,7 @@ library(igraph)
 args <- commandArgs(trailingOnly = TRUE)
 base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
 truth_dir <- file.path(base_dir, "data", "interaction_ground_truth")
-fig_dir <- file.path(base_dir, "figures", "march26")
+fig_dir <- file.path(base_dir, "paper", "sagmb", "figures")
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 date_tag <- format(Sys.Date(), "%Y-%m-%d")
 
@@ -27,6 +27,7 @@ read_tsv_gz <- function(path) {
 truth <- as.data.table(read_tsv_gz(file.path(proc_dir, "truth_undirected.tsv.gz")))
 pln <- as.data.table(read_tsv_gz(file.path(proc_dir, "benchmark_outputs", "PLNnetwork_predictions.tsv.gz")))
 glm <- as.data.table(read_tsv_gz(file.path(proc_dir, "benchmark_outputs", "LOTO_glmnet_CV1se_predictions.tsv.gz")))
+spiec <- as.data.table(read_tsv_gz(file.path(proc_dir, "benchmark_outputs", "SPIECEASI_predictions.tsv.gz")))
 
 truth_edges <- truth[, .(
   from = taxon_1,
@@ -49,11 +50,18 @@ glm_edges <- glm[, .(
   weight = abs(as.numeric(weight)),
   edge_sign = ifelse(sign > 0, "positive", "negative")
 )]
+spiec_edges <- spiec[, .(
+  from = taxon_1,
+  to = taxon_2,
+  weight = abs(as.numeric(weight)),
+  edge_sign = ifelse(sign > 0, "positive", "negative")
+)]
 
 union_edges <- unique(rbindlist(list(
   truth_edges[, .(from, to)],
   pln_edges[, .(from, to)],
-  glm_edges[, .(from, to)]
+  glm_edges[, .(from, to)],
+  spiec_edges[, .(from, to)]
 )))
 vertices <- sort(unique(c(union_edges$from, union_edges$to)))
 
@@ -116,18 +124,23 @@ plot_graph <- function(edge_dt, main_title, show_legend = FALSE) {
   }
 }
 
-out_png <- file.path(fig_dir, sprintf("interaction_network_example_%s_%s.png", dataset, date_tag))
+out_png <- if (dataset == "omm12") {
+  file.path(fig_dir, "figure5_omm12_network_comparison.png")
+} else {
+  file.path(fig_dir, sprintf("interaction_network_example_%s_%s.png", dataset, date_tag))
+}
 png(
   filename = out_png,
-  width = 9.2,
+  width = 12.2,
   height = 3.8,
   units = "in",
   res = 300
 )
-op <- par(mfrow = c(1, 3), mar = c(0.3, 0.3, 2.1, 0.3), oma = c(0, 0, 0, 0))
+op <- par(mfrow = c(1, 4), mar = c(0.3, 0.3, 2.1, 0.3), oma = c(0, 0, 0, 0))
 plot_graph(truth_edges, "Truth", show_legend = TRUE)
 plot_graph(pln_edges, "PLNNetwork")
 plot_graph(glm_edges, "GLMNet (Poisson)")
+plot_graph(spiec_edges, "SPIEC-EASI")
 par(op)
 dev.off()
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=clr_sequence
-#SBATCH --time=48:00:00
+#SBATCH --time=72:00:00
 #SBATCH --mem=2G
 #SBATCH --cpus-per-task=1
 #SBATCH --chdir=/projects/genomic-ml/da2343/PLN/pln_eval

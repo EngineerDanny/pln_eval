@@ -101,7 +101,32 @@ grid <- benchmark_grid(tasks, learners, resampling)
 dir.create(registry_root, recursive = TRUE, showWarnings = FALSE)
 registry_dir <- file.path(registry_root, dataname)
 if (dir.exists(registry_dir)) {
-  stop("Registry already exists: ", registry_dir, ". Move or remove it before rerunning.")
+  registry <- loadRegistry(registry_dir, writeable = TRUE)
+  syncRegistry(reg = registry)
+
+  expired <- findExpired(reg = registry)
+  if (nrow(expired)) resetJobs(expired, reg = registry)
+  jobs <- findNotSubmitted(reg = registry)
+
+  if (!nrow(jobs)) {
+    cat("No jobs require submission for existing registry: ", dataname, "\n", sep = "")
+    quit(save = "no", status = 0)
+  }
+
+  jobs[, chunk := chunk(job.id, chunk.size = array_max_size, shuffle = FALSE)]
+  submitJobs(
+    ids = jobs,
+    resources = list(
+      walltime = slurm_walltime,
+      memory = slurm_memory,
+      ncpus = 1L,
+      ntasks = 1L,
+      chunks.as.arrayjobs = TRUE
+    ),
+    reg = registry
+  )
+  cat(sprintf("Resubmitted %d incomplete jobs for %s\n", nrow(jobs), dataname))
+  quit(save = "no", status = 0)
 }
 
 future::plan("sequential")

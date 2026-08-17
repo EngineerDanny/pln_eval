@@ -11,6 +11,13 @@ bootstrap_path <- file.path(base_dir, "out", "bootstrap_f1_results.csv")
 if (!file.exists(bootstrap_path)) stop("Run bootstrap_f1.R first.")
 
 results <- fread(bootstrap_path)
+spieceasi_path <- file.path(base_dir, "out", "spieceasi_bootstrap_f1_results.csv")
+if (file.exists(spieceasi_path)) {
+  spieceasi_results <- fread(spieceasi_path)[, .(
+    dataset, method, bootstrap_rep, f1
+  )]
+  results <- rbindlist(list(results, spieceasi_results), fill = TRUE)
+}
 
 dataset_info <- data.table(
   dataset = c(
@@ -44,14 +51,25 @@ summary_dt <- results[, .(
 
 # Merge in labels
 plot_dt <- merge(summary_dt, dataset_info, by = "dataset", all.x = TRUE)
-plot_dt <- plot_dt[method %in% c("PLNnetwork", "LOTO_glmnet_CV1se")]
+plot_dt <- plot_dt[method %in% c("PLNnetwork", "LOTO_glmnet_CV1se", "SPIEC-EASI")]
 
-method_map <- c(PLNnetwork = "PLNNetwork", LOTO_glmnet_CV1se = "GLMNet (Poisson)")
-plot_dt[, method_label := factor(method_map[method], levels = c("PLNNetwork", "GLMNet (Poisson)"))]
+method_map <- c(
+  PLNnetwork = "PLNNetwork",
+  LOTO_glmnet_CV1se = "GLMNet (Poisson)",
+  `SPIEC-EASI` = "SPIEC-EASI"
+)
+plot_dt[, method_label := factor(
+  method_map[method],
+  levels = c("PLNNetwork", "GLMNet (Poisson)", "SPIEC-EASI")
+)]
 plot_dt[, benchmark_group := factor(benchmark_group, levels = c("Broad edge recovery", "Local / directional"))]
 plot_dt[, dataset_label := factor(dataset_label, levels = dataset_info$dataset_label)]
 
-fill_map <- c("PLNNetwork" = "grey30", "GLMNet (Poisson)" = "grey80")
+fill_map <- c(
+  "PLNNetwork" = "grey30",
+  "GLMNet (Poisson)" = "grey80",
+  "SPIEC-EASI" = "#4C78A8"
+)
 
 p <- ggplot(plot_dt, aes(x = dataset_label, y = mean_f1, fill = method_label,
                          ymin = pmax(mean_f1 - se_f1, 0), ymax = pmin(mean_f1 + se_f1, 1))) +
@@ -89,7 +107,7 @@ p <- ggplot(plot_dt, aes(x = dataset_label, y = mean_f1, fill = method_label,
     plot.margin        = margin(6, 8, 6, 6)
   )
 
-out_png <- file.path(fig_dir, "figure4_network_f1_benchmarks.png")
+out_png <- file.path(base_dir, "paper", "sagmb", "figures", "figure4_network_f1_benchmarks.png")
 ggsave(out_png, p, width = 7.1, height = 3.2, dpi = 400)
 cat("Saved:", out_png, "\n")
 

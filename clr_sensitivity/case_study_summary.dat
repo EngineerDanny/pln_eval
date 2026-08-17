@@ -1,0 +1,7 @@
+dataset	dataset_label	primary_outcome	method	mean_deviance	se_deviance
+amgut2	amgut2 (N=297, D=138)	PLN favored in primary benchmark	Featureless	2.218361	0.02421298
+amgut2	amgut2 (N=297, D=138)	PLN favored in primary benchmark	GLMNet	1.321511	0.03206402
+amgut2	amgut2 (N=297, D=138)	PLN favored in primary benchmark	CLR-GLMNet	1.525893	0.03231857
+amgut1	amgut1 (N=289, D=127)	GLMNet favored in primary benchmark	Featureless	1.81774493601414	0.0289061613573101
+amgut1	amgut1 (N=289, D=127)	GLMNet favored in primary benchmark	GLMNet	1.20231747216914	0.036954045309061
+amgut1	amgut1 (N=289, D=127)	GLMNet favored in primary benchmark	CLR-GLMNet	1.25703814150477	0.0367964019534188
