@@ -16,10 +16,12 @@ datasets <- if (length(args)) args else c(
 
 base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
 truth_dir <- file.path(base_dir, "data", "interaction_ground_truth")
-out_path <- file.path(base_dir, "out", "spieceasi_bootstrap_f1_results.csv")
+out_path <- Sys.getenv(
+  "SPIECEASI_OUTPUT",
+  file.path(base_dir, "out", "spieceasi_bootstrap_f1_results.csv")
+)
+dir.create(dirname(out_path), recursive = TRUE, showWarnings = FALSE)
 B <- as.integer(Sys.getenv("SPIECEASI_BOOTSTRAPS", "20"))
-nlambda <- as.integer(Sys.getenv("SPIECEASI_NLAMBDA", "50"))
-lambda_min_ratio <- as.numeric(Sys.getenv("SPIECEASI_LAMBDA_MIN_RATIO", "0.1"))
 
 read_tsv_gz <- function(path) {
   read.delim(
@@ -86,13 +88,19 @@ fit_spieceasi <- function(X) {
   fit <- spiec.easi(
     X,
     method = "glasso",
-    nlambda = nlambda,
-    lambda.min.ratio = lambda_min_ratio,
-    sel.criterion = "stars",
-    pulsar.params = list(rep.num = 20, thresh = 0.05, ncores = 1),
-    verbose = FALSE
+    nlambda = 50,
+    lambda.min.ratio = 0.05,
+    verbose = identical(Sys.getenv("SPIECEASI_VERBOSE"), "1")
   )
-  list(fit = fit, adjacency = as.matrix(getRefit(fit)))
+  opt_index <- getOptInd(fit)
+  lambda_path <- fit$lambda
+  list(
+    fit = fit,
+    adjacency = as.matrix(getRefit(fit)),
+    selected_lambda = getOptLambda(fit),
+    min_lambda = min(lambda_path),
+    selected_min_lambda = opt_index == length(lambda_path)
+  )
 }
 
 existing <- if (file.exists(out_path)) fread(out_path) else data.table()
@@ -126,6 +134,9 @@ for (dataset_idx in seq_along(datasets)) {
         dataset = current_dataset, method = "SPIEC-EASI", bootstrap_rep = b,
         f1 = metrics$f1, n_pred = metrics$n_pred, tp = metrics$tp,
         fp = metrics$fp, fn = metrics$fn,
+        selected_lambda = fitted$selected_lambda,
+        min_lambda = fitted$min_lambda,
+        selected_min_lambda = fitted$selected_min_lambda,
         elapsed_seconds = proc.time()[["elapsed"]] - started,
         seed = seed, error = NA_character_
       )
@@ -134,6 +145,8 @@ for (dataset_idx in seq_along(datasets)) {
         dataset = current_dataset, method = "SPIEC-EASI", bootstrap_rep = b,
         f1 = NA_real_, n_pred = NA_integer_, tp = NA_integer_,
         fp = NA_integer_, fn = NA_integer_,
+        selected_lambda = NA_real_, min_lambda = NA_real_,
+        selected_min_lambda = NA,
         elapsed_seconds = proc.time()[["elapsed"]] - started,
         seed = seed, error = conditionMessage(e)
       )

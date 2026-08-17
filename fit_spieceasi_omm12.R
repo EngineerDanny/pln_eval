@@ -19,10 +19,16 @@ fit <- spiec.easi(
   X,
   method = "glasso",
   nlambda = 50,
-  lambda.min.ratio = 0.1,
-  sel.criterion = "stars",
-  pulsar.params = list(rep.num = 20, thresh = 0.05, ncores = 1),
+  lambda.min.ratio = 0.05,
   verbose = FALSE
+)
+
+opt_index <- getOptInd(fit)
+lambda_path <- fit$lambda
+cat(
+  "Selected lambda:", getOptLambda(fit),
+  "| minimum lambda:", min(lambda_path),
+  "| selected minimum:", opt_index == length(lambda_path), "\n"
 )
 
 adjacency <- as.matrix(getRefit(fit))

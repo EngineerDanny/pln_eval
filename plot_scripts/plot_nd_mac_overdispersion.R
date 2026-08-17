@@ -8,34 +8,21 @@ base_dir <- "/projects/genomic-ml/da2343/PLN/pln_eval"
 benchmark <- fread(file.path(
   base_dir, "out", "count_prediction_results_retained20_with_stats.csv"
 ))
-overdispersion <- fread(file.path(base_dir, "out", "overdispersion_summary.csv"))
-plot_dt <- merge(
-  benchmark,
-  overdispersion[, .(source_id = dataset, overdispersion)],
-  by = "source_id",
-  all.x = TRUE
-)
-if (anyNA(plot_dt$overdispersion)) stop("Overdispersion is missing for retained datasets")
-
-plot_dt[, outcome := fifelse(
-  dataset == "American Gut 1",
-  "GLMNet wins (outlier)",
-  fifelse(winner == "PLN", "PLN wins", "GLMNet wins")
-)]
+plot_dt <- copy(benchmark)
+plot_dt[, outcome := fifelse(winner == "PLN", "PLN wins", "GLMNet wins")]
 plot_dt[, outcome := factor(
   outcome,
-  levels = c("PLN wins", "GLMNet wins", "GLMNet wins (outlier)")
+  levels = c("PLN wins", "GLMNet wins")
 )]
 p_scatter <- ggplot(
   plot_dt,
   aes(
     x = N_over_D,
     y = mac,
-    shape = outcome,
-    fill = outcome
+    color = outcome
   )
 ) +
-  geom_point(color = "black", stroke = 0.35, size = 3.2, alpha = 0.9) +
+  geom_point(shape = 16, size = 2.4, alpha = 0.9) +
   scale_x_log10(
     limits = c(0.05, 100),
     breaks = c(0.1, 0.3, 1, 3, 10, 30, 100)
@@ -45,17 +32,15 @@ p_scatter <- ggplot(
     breaks = seq(0, 0.25, 0.05),
     expand = expansion(mult = c(0, 0.02))
   ) +
-  scale_shape_manual(values = c(21, 21, 21), name = NULL) +
-  scale_fill_manual(
-    values = c("#0000BF", "#BF0000", "#CC6600"),
+  scale_color_manual(
+    values = c("#0000BF", "#BF0000"),
     name = NULL
   ) +
   guides(
-    shape = guide_legend(
+    color = guide_legend(
       order = 1,
-      override.aes = list(size = 4.0, fill = c("#0000BF", "#BF0000", "#CC6600"))
-    ),
-    fill = "none"
+      override.aes = list(shape = 16, size = 3.2)
+    )
   ) +
   labs(
     x = expression(N/D~"ratio (log scale)"),
@@ -75,13 +60,10 @@ p_scatter <- ggplot(
   )
 
 plot_dt[, relative_pln_advantage := (glmnet - pln) / glmnet]
-plot_dt[, `:=`(
-  log_nd = log(N_over_D),
-  log_overdispersion = log(overdispersion)
-)]
-plot_dt[, c("z_log_nd", "z_mac", "z_log_overdispersion") := lapply(
+plot_dt[, log_nd := log(N_over_D)]
+plot_dt[, c("z_log_nd", "z_mac") := lapply(
   .SD, function(x) as.numeric(scale(x))
-), .SDcols = c("log_nd", "mac", "log_overdispersion")]
+), .SDcols = c("log_nd", "mac")]
 
 fit <- lm(
   relative_pln_advantage ~ z_log_nd + z_mac,
@@ -155,13 +137,13 @@ p_table <- ggplot() +
     label = unlist(table_dt, use.names = FALSE), size = 2.2
   ) +
   annotate(
-    "text", x = 0.5, y = 0.90, label = "Adjusted regression",
-    fontface = "bold", size = 3.2
+    "text", x = 0.03, y = 0.90, label = "B) Adjusted regression",
+    hjust = 0, fontface = "bold", size = 3.2
   ) +
   annotate(
     "text", x = 0.03, y = 0.27,
     label = sprintf(
-      "Outcome: relative PLN advantage\nHC3 intervals; n = 20\nR\u00b2 = %.2f; adjusted R\u00b2 = %.2f",
+      "Outcome: relative PLN advantage\nRobust 95%% CI (n = 20)\nR\u00b2 = %.2f; adjusted R\u00b2 = %.2f",
       summary(fit)$r.squared, summary(fit)$adj.r.squared
     ),
     hjust = 0, vjust = 1, size = 2.55, lineheight = 1.1
@@ -169,8 +151,8 @@ p_table <- ggplot() +
   coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
   theme_void()
 
-p <- (p_scatter + labs(tag = "A")) +
-  (p_table + labs(tag = "B")) +
+p <- (p_scatter + labs(tag = "A)")) +
+  p_table +
   plot_layout(widths = c(1.45, 1.05)) &
   theme(plot.tag = element_text(face = "bold", size = 11))
 

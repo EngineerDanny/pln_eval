@@ -310,7 +310,7 @@ The estimated interaction graph is therefore
 
 SPIEC-EASI provides a network comparator designed for compositional microbiome data~\citep{Kurtz2015SPIECEASI}.
 We used its graphical-lasso implementation, which applies the package's centered log-ratio transformation and estimates a sparse inverse covariance matrix.
-We evaluated 50 penalty values with a minimum-to-maximum penalty ratio of 0.1 and selected the graph by StARS with 20 subsamples and an instability threshold of 0.05.
+We fit SPIEC-EASI using graphical lasso over 50 penalty values with a minimum-to-maximum penalty ratio of 0.05, followed by StARS selection with 20 subsamples and an instability threshold of 0.05.
 
 All PLN models were fit with variational inference using the \texttt{PLNmodels} package~\citep{Chiquet2021}.
 All penalized Poisson regressions were fit with \texttt{glmnet}~\citep{Friedman2010}.
@@ -363,6 +363,18 @@ For \texttt{GLMNet(Poisson)}, the regularization parameter $\lambda$ was selecte
 For PLN, the shrinkage parameter $\alpha$ was selected by 3-fold inner cross-validation on Poisson deviance.
 The featureless baseline serves as a lower bound: any algorithm with higher deviance than the featureless baseline provides no useful predictive signal.
 
+To quantify how dataset characteristics relate to comparative performance, we fitted an exploratory linear regression across the 20 retained datasets.
+For dataset $d$, the outcome was the relative PLN advantage
+\[
+A_d = \frac{D_{\mathrm{GLMNet},d}-D_{\mathrm{PLN},d}}
+{D_{\mathrm{GLMNet},d}},
+\]
+where positive values indicate lower deviance for PLN and negative values indicate lower deviance for \texttt{GLMNet(Poisson)}.
+The predictors were $\log(N_d/D_d)$ and MAC, each standardized to mean zero and unit variance before fitting.
+The resulting coefficient for each predictor therefore represents the expected change in relative PLN advantage for a one-standard-deviation increase in that predictor while holding the other predictor constant.
+We used HC3 heteroskedasticity-consistent standard errors for confidence intervals and $p$-values because the analysis contains only 20 heterogeneous datasets.
+The regression is intended to quantify associations within this benchmark rather than to define a universal decision rule or establish causal effects.
+
 \subsubsection{Network-inference evaluation}
 
 For network inference, estimated interaction graphs were compared against experimentally validated microbial interactions from five ground-truth datasets: PairInteraX~\citep{Zhu2025PairInteraX}, OMM12~\citep{Weiss2022OMM12}, OMM12 keystone 2023~\citep{Weiss2023Keystone}, butyrate assembly 2021~\citep{Clark2021Butyrate}, and host fitness 2018~\citep{Gould2018HostFitness}.
@@ -387,7 +399,7 @@ We report median wall time and peak memory across those repeated measurements.
 \centering
 \includegraphics[width=0.96\textwidth]{figure2_nd_mac}
 \caption{Dataset characteristics associated with relative count-prediction performance across the 20-dataset real-data benchmark.
-(A) Dataset-level winner as a function of $N/D$ and MAC. Blue circles indicate lower held-out Poisson deviance for PLN, red circles indicate lower deviance for \texttt{GLMNet(Poisson)}, and the orange circle marks American Gut~1 as a low-$N/D$, high-MAC outlier favoring GLMNet.
+(A) Dataset-level winner as a function of $N/D$ and MAC. Blue circles indicate lower held-out Poisson deviance for PLN, and red circles indicate lower deviance for \texttt{GLMNet(Poisson)}.
 (B) Exploratory linear regression of relative PLN advantage, $(D_{\mathrm{GLMNet}}-D_{\mathrm{PLN}})/D_{\mathrm{GLMNet}}$, on standardized $\log(N/D)$ and MAC.
 Coefficients represent the change in relative PLN advantage per one-standard-deviation increase in a predictor; intervals and $p$-values use HC3 standard errors.}
 \label{fig:nd_mac_scatter}
@@ -409,8 +421,9 @@ Overdispersion showed little marginal separation between winners.
 The median variance-to-mean index was 218.8 among PLN wins and 663.5 among \texttt{GLMNet(Poisson)} wins, and an exploratory rank-sum comparison on the log-transformed indices did not indicate a location shift ($p=0.67$).
 Thus, although PLN's latent Gaussian layer can represent extra-Poisson variation, overdispersion alone did not explain which method predicted better in these 20 datasets.
 
-We also fitted an exploratory dataset-level regression to quantify the joint contributions of these characteristics (Figure~\ref{fig:nd_mac_scatter}B).
+We also fitted an exploratory dataset-level regression to quantify the joint contributions of $N/D$ and MAC (Figure~\ref{fig:nd_mac_scatter}B).
 The outcome was relative PLN advantage, $(D_{\mathrm{GLMNet}}-D_{\mathrm{PLN}})/D_{\mathrm{GLMNet}}$, and the predictors were standardized $\log(N/D)$ and MAC.
+Here, ``adjusted'' means that the association for each predictor is estimated while holding the other predictor constant.
 The model explained 65\% of the between-dataset variation (adjusted $R^2=0.61$).
 The coefficient for $\log(N/D)$ was negative ($\beta=-0.122$, 95\% CI $[-0.166,\ -0.078]$; $p<0.001$), consistent with a declining PLN advantage as the sample-to-taxon ratio increased.
 MAC had a smaller positive coefficient ($\beta=0.060$, 95\% CI $[-0.010,\ 0.131]$; $p=0.090$).
@@ -526,7 +539,7 @@ All four occur in the experimental graph, but they represent only a small fracti
 The local and directional datasets tell a more nuanced story.
 On butyrate assembly 2021, PLNNetwork retains a modest advantage ($0.36 \pm 0.004$ versus $0.26 \pm 0.008$).
 On host fitness 2018, however, the ranking reverses and \texttt{GLMNet(Poisson)} achieves the best overall recovery ($0.95 \pm 0.00$ versus $0.80 \pm 0.03$).
-SPIEC-EASI selected substantially sparser graphs and had lower mean F1 than both Poisson-family methods on four datasets: OMM12 ($0.10 \pm 0.01$), OMM12 keystone 2023 ($0.12 \pm 0.01$), butyrate assembly 2021 ($0.04 \pm 0.005$), and host fitness 2018 ($0.07 \pm 0.02$).
+SPIEC-EASI selected substantially sparser graphs and had lower mean F1 than both Poisson-family methods on four datasets: OMM12 ($0.11 \pm 0.01$), OMM12 keystone 2023 ($0.11 \pm 0.01$), butyrate assembly 2021 ($0.04 \pm 0.005$), and host fitness 2018 ($0.07 \pm 0.02$).
 On PairInteraX, its mean F1 was $0.08 \pm 0.001$, slightly above \texttt{GLMNet(Poisson)} ($0.07 \pm 0.003$) but below PLNNetwork ($0.22 \pm 0.01$).
 Thus, explicitly compositional preprocessing did not by itself improve recovery of these experimental interaction sets under the selected sparse graph.
 This contrast is shown in Figure~S2 of the Supplementary Material.

@@ -66,9 +66,9 @@ plot_dt[, benchmark_group := factor(benchmark_group, levels = c("Broad edge reco
 plot_dt[, dataset_label := factor(dataset_label, levels = dataset_info$dataset_label)]
 
 fill_map <- c(
-  "PLNNetwork" = "grey30",
-  "GLMNet (Poisson)" = "grey80",
-  "SPIEC-EASI" = "#4C78A8"
+  "PLNNetwork" = "#4C78A8",
+  "GLMNet (Poisson)" = "grey30",
+  "SPIEC-EASI" = "grey80"
 )
 
 p <- ggplot(plot_dt, aes(x = dataset_label, y = mean_f1, fill = method_label,
