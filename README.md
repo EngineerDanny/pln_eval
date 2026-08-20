@@ -8,7 +8,7 @@ Benchmark code and analysis for the paper:
 
 This repository provides the full pipeline for a LOTO-CV (Leave-One-Taxon-Out cross-validation) benchmark comparing PLN and GLMNet(Poisson) across 20 real microbiome count datasets and five network-inference benchmarks.
 
-The main finding is that **N/D ratio** (samples-to-taxa) is the strongest predictor of which method wins, with **mean absolute correlation (MAC)** as the strongest secondary signal and overdispersion providing further discriminative power (combined AUC = 0.84).
+The main finding is that **N/D ratio** (samples-to-taxa) is the strongest predictor of which method wins, with **mean absolute correlation (MAC)** as the main secondary signal. Overdispersion was examined but did not appear to be a core determinant of the winner in this benchmark.
 
 ## Paper
 
@@ -71,7 +71,7 @@ Time is limited, so prioritize analyses that directly address the reviewer conce
    This provides a representative log ratio baseline without turning the paper into a full compositional methods benchmark.
 
 2. Add a formal predictor analysis for PLN wins.
-   Model the winner using `log(N/D)`, MAC, and overdispersion, using a small sample appropriate approach such as logistic regression, penalized logistic regression, or leave one out logistic regression.
+   Model relative PLN advantage using `log(N/D)` and MAC, and summarize overdispersion separately as a marginal diagnostic.
 
 3. Add an empirical threshold analysis for `N/D`.
    Estimate the split using a decision stump or ROC threshold, and present the `N/D < 5` rule as an empirical pattern from this benchmark rather than as a theoretical cutoff.
